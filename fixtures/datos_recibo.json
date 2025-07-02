@@ -1,0 +1,6 @@
+{
+    "usuario_id": 1,
+    "mensualidades_id": [2, 3],
+    "gastos_extra_id": [1],
+    "observaciones": "Pago parcial de deuda"
+}

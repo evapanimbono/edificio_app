@@ -1,0 +1,26 @@
+[
+  {
+    "model": "usuarios.usuarioedificio",
+    "pk": 1,
+    "fields": {
+      "usuario": 8,
+      "edificio": 1,
+      "rol": "administrador",
+      "fecha_asignacion": "2024-01-01T10:00:00Z",
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "usuarios.usuarioedificio",
+    "pk": 2,
+    "fields": {
+      "usuario": 10,
+      "edificio": 1,
+      "rol": "administrador",
+      "fecha_asignacion": "2024-01-01T10:00:00Z",
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": "2024-01-01T10:00:00Z"
+    }
+  }
+]

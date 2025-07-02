@@ -1,0 +1,122 @@
+[
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 1,
+    "fields": {
+      "pago": 1,
+      "denominacion": "20.00",
+      "serial": "EF-A001",
+      "foto_billete": "img/efectivo_1_a.jpg",
+      "created_at": "2024-04-04T10:00:00Z",
+      "updated_at": "2024-04-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 2,
+    "fields": {
+      "pago": 1,
+      "denominacion": "20.00",
+      "serial": "EF-A002",
+      "foto_billete": "img/efectivo_1_b.jpg",
+      "created_at": "2024-04-04T10:00:00Z",
+      "updated_at": "2024-04-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 3,
+    "fields": {
+      "pago": 3,
+      "denominacion": "10.00",
+      "serial": "MX-B001",
+      "foto_billete": "img/efectivo_3_a.jpg",
+      "created_at": "2025-08-04T10:00:00Z",
+      "updated_at": "2025-08-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 4,
+    "fields": {
+      "pago": 3,
+      "denominacion": "10.00",
+      "serial": "MX-B002",
+      "foto_billete": "img/efectivo_3_b.jpg",
+      "created_at": "2025-08-04T10:00:00Z",
+      "updated_at": "2025-08-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 5,
+    "fields": {
+      "pago": 3,
+      "denominacion": "10.00",
+      "serial": "MX-B003",
+      "foto_billete": "img/efectivo_3_c.jpg",
+      "created_at": "2025-08-04T10:00:00Z",
+      "updated_at": "2025-08-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 6,
+    "fields": {
+      "pago": 5,
+      "denominacion": "20.00",
+      "serial": "EF-C001",
+      "foto_billete": "img/efectivo_5_a.jpg",
+      "created_at": "2025-06-04T09:00:00Z",
+      "updated_at": "2025-06-04T09:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 7,
+    "fields": {
+      "pago": 5,
+      "denominacion": "20.00",
+      "serial": "EF-C002",
+      "foto_billete": "img/efectivo_5_b.jpg",
+      "created_at": "2025-06-04T09:00:00Z",
+      "updated_at": "2025-06-04T09:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 8,
+    "fields": {
+      "pago": 6,
+      "denominacion": "10.00",
+      "serial": "MX-D001",
+      "foto_billete": "img/efectivo_6_a.jpg",
+      "created_at": "2025-06-05T10:30:00Z",
+      "updated_at": "2025-06-05T10:30:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 9,
+    "fields": {
+      "pago": 6,
+      "denominacion": "10.00",
+      "serial": "MX-D002",
+      "foto_billete": "img/efectivo_6_b.jpg",
+      "created_at": "2025-06-05T10:30:00Z",
+      "updated_at": "2025-06-05T10:30:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagoefectivo",
+    "pk": 10,
+    "fields": {
+      "pago": 6,
+      "denominacion": "10.00",
+      "serial": "MX-D003",
+      "foto_billete": "img/efectivo_6_c.jpg",
+      "created_at": "2025-06-05T10:30:00Z",
+      "updated_at": "2025-06-05T10:30:00Z"
+    }
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+  "mensualidad": 2,
+  "monto_total": 40.0,
+  "fecha_pago": "2025-06-16",
+  "efectivo": {
+    "monto_bs": 2040.0,
+    "referencia": "ef123"
+  }
+  } 
+]

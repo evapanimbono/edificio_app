@@ -1,0 +1,137 @@
+[
+  {
+    "model": "edificios.apartamento",
+    "pk": 1,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "2",
+      "piso": 1,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 1er piso",
+      "created_at": "2024-01-02T10:00:00Z",
+      "updated_at": "2024-01-02T10:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 2,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "3",
+      "piso": 1,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 1er piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 3,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "4",
+      "piso": 1,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 1er piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 4,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "6",
+      "piso": 2,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 2do piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 5,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "7",
+      "piso": 2,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 2do piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 6,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "8",
+      "piso": 2,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 2do piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 7,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "9",
+      "piso": 2,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento 1H y 1B en 2do piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "activo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 8,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "1",
+      "piso": 1,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento AirBnb 1H y 1B en 1er piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "inactivo"
+    }
+  },
+  {
+    "model": "edificios.apartamento",
+    "pk": 9,
+    "fields": {
+      "edificio": 1,
+      "numero_apartamento": "5",
+      "piso": 1,
+      "habitaciones": 1,
+      "banos": 1,
+      "descripcion": "Apartamento AirBnb 1H y 1B en 2do piso",
+      "created_at": "2024-02-16T14:00:00Z",
+      "updated_at": "2024-02-16T14:00:00Z",
+      "estado": "inactivo"
+    }
+  }
+]

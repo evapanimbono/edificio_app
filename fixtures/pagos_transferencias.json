@@ -1,0 +1,58 @@
+[
+  {
+    "model": "pagos.pagotransferencias",
+    "pk": 1,
+    "fields": {
+      "pago": 2,
+      "banco_destino": "Banesco",
+      "cuenta_destino": "0134-0123-4567-8901",
+      "referencia": "TRX-20250401",
+      "monto_bs": "1460.00",
+      "comprobante_img": "comprobantes/trx_2.jpg",
+      "created_at": "2025-04-01T12:00:00Z",
+      "updated_at": "2025-04-01T12:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagotransferencias",
+    "pk": 2,
+    "fields": {
+      "pago": 3,
+      "banco_destino": "Banesco",
+      "cuenta_destino": "0134-0123-4567-8901",
+      "referencia": "TRX-20250804",
+      "monto_bs": "365.00",
+      "comprobante_img": "comprobantes/trx_3.jpg",
+      "created_at": "2025-08-04T12:00:00Z",
+      "updated_at": "2025-08-04T12:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagotransferencias",
+    "pk": 3,
+    "fields": {
+      "pago": 4,
+      "banco_destino": "Banesco",
+      "cuenta_destino": "0134-0123-4567-8901",
+      "referencia": "TRX-20250504",
+      "monto_bs": "1460.00",
+      "comprobante_img": "comprobantes/trx_4.jpg",
+      "created_at": "2025-05-04T12:00:00Z",
+      "updated_at": "2025-05-04T12:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pagotransferencias",
+    "pk": 4,
+    "fields": {
+      "pago": 6,
+      "banco_destino": "Banesco",
+      "cuenta_destino": "0134-0123-4567-8901",
+      "referencia": "TRX-20250605",
+      "monto_bs": "365.00",
+      "comprobante_img": "comprobantes/trx_6.jpg",
+      "created_at": "2025-06-05T12:00:00Z",
+      "updated_at": "2025-06-05T12:00:00Z"
+    }
+  }
+]

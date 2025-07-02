@@ -1,0 +1,114 @@
+[
+  {
+    "model": "contratos.contrato",
+    "pk": 1,
+    "fields": {
+      "arrendatario": 1,
+      "apartamento": 1,
+      "fecha_inicio": "2024-02-01",
+      "fecha_fin": "2026-01-31",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2024-02-01T10:00:00Z",
+      "updated_at": "2024-02-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 2,
+    "fields": {
+      "arrendatario": 2,
+      "apartamento": 2,
+      "fecha_inicio": "2024-10-01",
+      "fecha_fin": "2025-09-30",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2024-10-01T10:00:00Z",
+      "updated_at": "2024-10-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 3,
+    "fields": {
+      "arrendatario": 3,
+      "apartamento": 3,
+      "fecha_inicio": "2024-03-01",
+      "fecha_fin": "2026-02-28",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2024-03-01T10:00:00Z",
+      "updated_at": "2024-03-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 4,
+    "fields": {
+      "arrendatario": 4,
+      "apartamento": 4,
+      "fecha_inicio": "2024-05-01",
+      "fecha_fin": "2026-04-30",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2024-05-01T10:00:00Z",
+      "updated_at": "2024-05-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 5,
+    "fields": {
+      "arrendatario": 5,
+      "apartamento": 5,
+      "fecha_inicio": "2025-07-01",
+      "fecha_fin": "2026-06-30",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2025-07-01T10:00:00Z",
+      "updated_at": "2025-07-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 6,
+    "fields": {
+      "arrendatario": 6,
+      "apartamento": 6,
+      "fecha_inicio": "2024-12-01",
+      "fecha_fin": "2025-11-30",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2024-12-01T10:00:00Z",
+      "updated_at": "2024-12-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "contratos.contrato",
+    "pk": 7,
+    "fields": {
+      "arrendatario": 7,
+      "apartamento": 7,
+      "fecha_inicio": "2025-03-01",
+      "fecha_fin": "2026-02-28",
+      "fecha_pago_mensual": 5,
+      "monto_usd_mensual": "40.00",
+      "archivo_contrato_pdf": null,
+      "activo": true,
+      "created_at": "2025-03-01T10:00:00Z",
+      "updated_at": "2025-03-01T10:00:00Z"
+    }
+  }
+]

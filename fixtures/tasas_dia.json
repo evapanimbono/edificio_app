@@ -1,0 +1,38 @@
+[
+  {
+    "model": "tasas.tasadia",
+    "pk": 1,
+    "fields": {
+      "fecha": "2025-04-01",
+      "valor_usd_bs": "40.2500",
+      "fuente": "BCV",
+      "registrada_por": 8,
+      "created_at": "2025-04-01T10:00:00Z",
+      "updated_at": "2025-04-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "tasas.tasadia",
+    "pk": 2,
+    "fields": {
+      "fecha": "2025-05-01",
+      "valor_usd_bs": "40.5000",
+      "fuente": "BCV",
+      "registrada_por": 8,
+      "created_at": "2025-05-01T10:00:00Z",
+      "updated_at": "2025-05-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "tasas.tasadia",
+    "pk": 3,
+    "fields": {
+      "fecha": "2025-06-01",
+      "valor_usd_bs": "40.8000",
+      "fuente": "BCV",
+      "registrada_por": 8,
+      "created_at": "2025-06-01T10:00:00Z",
+      "updated_at": "2025-06-01T10:00:00Z"
+    }
+  }
+]

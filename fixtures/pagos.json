@@ -1,0 +1,98 @@
+[
+  {
+    "model": "pagos.pago",
+    "pk": 1,
+    "fields": {
+      "mensualidad": 1,
+      "tipo_pago": "efectivo",
+      "fecha_pago": "2024-04-04",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "Pagado en la oficina",
+      "created_at": "2024-04-04T10:00:00Z",
+      "updated_at": "2024-04-04T10:00:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2024-04-05T12:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pago",
+    "pk": 2,
+    "fields": {
+      "mensualidad": 4,
+      "tipo_pago": "transferencia",
+      "fecha_pago": "2025-05-04",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "Transferencia bancaria",
+      "created_at": "2025-05-04T09:00:00Z",
+      "updated_at": "2025-05-04T09:00:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2025-05-05T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pago",
+    "pk": 3,
+    "fields": {
+      "mensualidad": 7,
+      "tipo_pago": "mixto",
+      "fecha_pago": "2025-08-04",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "20 efectivo + 20 transferencia",
+      "created_at": "2025-08-04T10:00:00Z",
+      "updated_at": "2025-08-04T10:00:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2025-08-05T11:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pago",
+    "pk": 4,
+    "fields": {
+      "mensualidad": 9,
+      "tipo_pago": "transferencia",
+      "fecha_pago": "2025-05-03",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "Pago móvil Mercantil",
+      "created_at": "2025-05-03T08:30:00Z",
+      "updated_at": "2025-05-03T08:30:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2025-05-04T09:30:00Z"
+    }
+  },
+  {
+    "model": "pagos.pago",
+    "pk": 5,
+    "fields": {
+      "mensualidad": 12,
+      "tipo_pago": "efectivo",
+      "fecha_pago": "2025-06-04",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "Pagado completo en bolívares",
+      "created_at": "2025-06-04T09:00:00Z",
+      "updated_at": "2025-06-04T09:00:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2025-06-05T10:00:00Z"
+    }
+  },
+  {
+    "model": "pagos.pago",
+    "pk": 6,
+    "fields": {
+      "mensualidad": 13,
+      "tipo_pago": "mixto",
+      "fecha_pago": "2025-06-05",
+      "monto_total": "40.00",
+      "estado_validacion": "validado",
+      "observaciones": "30 USD efectivo + 10 USD transferencia",
+      "created_at": "2025-06-05T10:30:00Z",
+      "updated_at": "2025-06-05T10:30:00Z",
+      "validado_por": 8,
+      "fecha_validacion": "2025-06-06T11:00:00Z"
+    }
+  }
+]

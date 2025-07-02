@@ -1,0 +1,58 @@
+[
+  {
+    "model": "gastos.gastoextra",
+    "pk": 1,
+    "fields": {
+      "apartamento": 1,
+      "descripcion": "Camión cisterna para tanque de agua",
+      "monto_usd": "20.00",
+      "fecha_generacion": "2025-04-10",
+      "estado": "pagado",
+      "tasa": 1,
+      "created_at": "2025-04-10T10:00:00Z",
+      "updated_at": "2025-04-10T10:00:00Z"
+    }
+  },
+  {
+    "model": "gastos.gastoextra",
+    "pk": 2,
+    "fields": {
+      "apartamento": 2,
+      "descripcion": "Camión cisterna de emergencia",
+      "monto_usd": "20.00",
+      "fecha_generacion": "2025-05-08",
+      "estado": "pagado",
+      "tasa": 2,
+      "created_at": "2025-05-08T10:00:00Z",
+      "updated_at": "2025-05-08T10:00:00Z"
+    }
+  },
+  {
+    "model": "gastos.gastoextra",
+    "pk": 3,
+    "fields": {
+      "apartamento": 3,
+      "descripcion": "Camión cisterna compartido entre vecinos",
+      "monto_usd": "20.00",
+      "fecha_generacion": "2025-05-28",
+      "estado": "pendiente",
+      "tasa": 2,
+      "created_at": "2025-05-28T10:00:00Z",
+      "updated_at": "2025-05-28T10:00:00Z"
+    }
+  },
+  {
+    "model": "gastos.gastoextra",
+    "pk": 4,
+    "fields": {
+      "apartamento": 4,
+      "descripcion": "Camión cisterna por corte de agua prolongado",
+      "monto_usd": "20.00",
+      "fecha_generacion": "2025-06-07",
+      "estado": "pendiente",
+      "tasa": 3,
+      "created_at": "2025-06-07T10:00:00Z",
+      "updated_at": "2025-06-07T10:00:00Z"
+    }
+  }
+]

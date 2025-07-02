@@ -1,0 +1,1 @@
+from .tareas import generar_mensualidades_automaticas

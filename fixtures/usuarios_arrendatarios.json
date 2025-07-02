@@ -1,0 +1,135 @@
+[
+  {
+    "model": "usuarios.usuario",
+    "pk": 1,
+    "fields": {
+      "username": "arrendatario1",
+      "correo": "eva@example.com",
+      "nombre_completo": "Eva González",
+      "telefono": "04141234567",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 2,
+    "fields": {
+      "username": "arrendatario2",
+      "correo": "luis@example.com",
+      "nombre_completo": "Luis Fernández",
+      "telefono": "04261234567",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 3,
+    "fields": {
+      "username": "arrendatario3",
+      "correo": "maria@example.com",
+      "nombre_completo": "María Romero",
+      "telefono": "04161234567",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 4,
+    "fields": {
+      "username": "arrendatario4",
+      "correo": "carlos@example.com",
+      "nombre_completo": "Carlos Moreno",
+      "telefono": "04121234567",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 5,
+    "fields": {
+      "username": "arrendatario5",
+      "correo": "laura@example.com",
+      "nombre_completo": "Laura Suárez",
+      "telefono": "04241234567",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 6,
+    "fields": {
+      "username": "arrendatario6",
+      "correo": "jose@example.com",
+      "nombre_completo": "José Pérez",
+      "telefono": "04161230000",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  },
+  {
+    "model": "usuarios.usuario",
+    "pk": 7,
+    "fields": {
+      "username": "arrendatario7",
+      "correo": "patricia@example.com",
+      "nombre_completo": "Patricia Mendoza",
+      "telefono": "04141235555",
+      "foto": "",
+      "tipo_usuario": "arrendatario",
+      "estado": "activo",
+      "fecha_registro": "2025-06-15T10:00:00Z",
+      "created_at": "2025-06-15T10:00:00Z",
+      "updated_at": "2025-06-15T10:00:00Z",
+      "password": "temporal123",
+      "is_active": true,
+      "is_staff": false
+    }
+  }
+]
