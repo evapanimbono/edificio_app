@@ -10,7 +10,7 @@ class MensualidadFilter(django_filters.FilterSet):
 
     class Meta:
         model = Mensualidad
-        ields = ['estado', 'fecha_inicio', 'fecha_vencimiento', 'contrato']
+        fields = ['estado', 'fecha_inicio', 'fecha_vencimiento', 'contrato']
 
 class ContratosFilter(django_filters.FilterSet):
     apartamento = django_filters.NumberFilter(field_name="apartamento_id")
