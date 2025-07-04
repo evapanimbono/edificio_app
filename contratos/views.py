@@ -16,6 +16,11 @@ from .models_mensualidades import Mensualidad
 from .serializers_mensualidades import MensualidadSerializer
 from .filters import MensualidadFilter
 
+from .permisos import(
+    PuedeModificarOMostrarMensualidad,
+    PuedeEliminarMensualidadSinPagos,
+    EsArrendadorYAdministraLaMensualidad
+)
 from usuarios.permissions import EsArrendador
 
 #Vista de contatos filtrada por tipo de usuario
@@ -107,3 +112,5 @@ class ContratoDetailArrendadorAPIView(generics.RetrieveUpdateDestroyAPIView):
             return Contrato.objects.all()
         edificios = user.edificios_asignados.values_list('edificio_id', flat=True)
         return Contrato.objects.filter(apartamento__edificio_id__in=edificios)
+    
+#============================= MENSUALIDADES =============================
