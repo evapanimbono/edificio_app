@@ -210,23 +210,3 @@ class ActualizarApartamentoAPIView(generics.UpdateAPIView):
             registro_id=apartamento.id,
             descripcion=f"Apartamento #{apartamento.id} actualizado en edificio '{apartamento.edificio.nombre}'"
         )
-
-# Eliminar apartamento (solo superuser)
-class EliminarApartamentoAPIView(generics.DestroyAPIView):
-    permission_classes = [EsSuperuser]
-    queryset = Apartamento.objects.all()
-
-    def perform_destroy(self, instance):
-        # Opcional: validar que no tenga contratos o pagos asociados (por simplicidad aquí no se hace)
-        nombre = instance.numero_apartamento
-        edificio_nombre = instance.edificio.nombre
-        instance.delete()
-
-        # Log de eliminación
-        LogAccion.objects.create(
-            usuario=self.request.user,
-            accion="eliminó apartamento",
-            tabla_afectada="Apartamento",
-            registro_id=instance.id,
-            descripcion=f"Apartamento #{instance.id} '{nombre}' del edificio '{edificio_nombre}' eliminado."
-        )
