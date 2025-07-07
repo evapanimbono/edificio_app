@@ -91,7 +91,15 @@ class CrearContratoAPIView(CreateAPIView):
         if usuario.tipo_usuario != 'arrendador' and not usuario.is_superuser:
             raise PermissionDenied("No tienes permiso para crear contratos.")
         
-        serializer.save()
+        contrato = serializer.save()
+
+        LogAccion.objects.create(
+            usuario=usuario,
+            accion="creó contrato",
+            tabla_afectada="Contrato",
+            registro_id=contrato.id,
+            descripcion=f"Contrato #{contrato.id} creado para arrendatario {contrato.arrendatario.username} en apartamento {contrato.apartamento.numero}."
+        )
 
 #Vista para obtener detalles de un contrato, accesible por arrendatario
 class ContratoDetailArrendatarioAPIView(generics.RetrieveAPIView):
@@ -118,6 +126,29 @@ class ContratoDetailArrendadorAPIView(generics.RetrieveUpdateDestroyAPIView):
         edificios = user.edificios_asignados.values_list('edificio_id', flat=True)
         return Contrato.objects.filter(apartamento__edificio_id__in=edificios)
     
+    def perform_update(self, serializer):
+        contrato = serializer.save()
+
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="actualizó contrato",
+            tabla_afectada="Contrato",
+            registro_id=contrato.id,
+            descripcion=f"Contrato #{contrato.id} actualizado."
+        )
+
+    def perform_destroy(self, instance):
+        contrato_id = instance.id
+        instance.delete()
+
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="eliminó contrato",
+            tabla_afectada="Contrato",
+            registro_id=contrato_id,
+            descripcion=f"Contrato #{contrato_id} eliminado."
+        )
+
 #============================= MENSUALIDADES =============================
 #Vista para ver detalle de una mensualidad, accesible por arrendador, arrendatario o superusuario
 class DetalleMensualidadAPIView(generics.RetrieveAPIView):
@@ -136,6 +167,16 @@ class ActualizarMensualidadAPIView(generics.UpdateAPIView):
     queryset = Mensualidad.objects.all()
     serializer_class = MensualidadEditarSerializer
     permission_classes = [IsAuthenticated, PuedeModificarOMostrarMensualidad]
+    
+    def perform_update(self, serializer):
+        mensualidad = serializer.save()
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="actualizó mensualidad",
+            tabla_afectada="Mensualidad",
+            registro_id=mensualidad.id,
+            descripcion=f"Mensualidad #{mensualidad.id} actualizada. Nueva fecha vencimiento: {mensualidad.fecha_vencimiento}."
+        )
 
 #Vista para eliminar una mensualidad, accesible por arrendador o superusuario (sin pagos asociados)
 class EliminarMensualidadAPIView(generics.DestroyAPIView):

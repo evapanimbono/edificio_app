@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from .models_mensualidades import Mensualidad
+from log.models import LogAccion
 
 from pagos.tareas import crear_recibo_para_mensualidad
 
@@ -32,6 +33,15 @@ class MensualidadCrearSerializer(serializers.ModelSerializer):
         )
 
         crear_recibo_para_mensualidad(mensualidad, creado_por=self.context['request'].user)
+
+        LogAccion.objects.create(
+            usuario=self.context['request'].user,
+            accion="creó mensualidad",
+            tabla_afectada="Mensualidad",
+            registro_id=mensualidad.id,
+            descripcion=f"Mensualidad #{mensualidad.id} creada desde serializer. Contrato #{mensualidad.contrato.id}, fecha vencimiento: {mensualidad.fecha_vencimiento}."
+        )
+        
         return mensualidad
   
 class MensualidadEditarSerializer(serializers.ModelSerializer):
