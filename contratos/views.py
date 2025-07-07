@@ -98,7 +98,7 @@ class CrearContratoAPIView(CreateAPIView):
             accion="creó contrato",
             tabla_afectada="Contrato",
             registro_id=contrato.id,
-            descripcion=f"Contrato #{contrato.id} creado para arrendatario {contrato.arrendatario.username} en apartamento {contrato.apartamento.numero}."
+            descripcion=f"Contrato #{contrato.id} creado para arrendatario {contrato.arrendatario.username} en apartamento {contrato.apartamento.numero_apartamento}."
         )
 
 #Vista para obtener detalles de un contrato, accesible por arrendatario
