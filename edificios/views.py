@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from .models import Edificio
 from .serializers import EdificioListSerializer, EdificioDetailSerializer, EdificioCrearEditarSerializer
-from .permisos import EsSuperuser, PuedeVerEdificio, PuedeModificarEliminarEdificio
+from .permisos import EsSuperuser
 
 from .models_apartamentos import Apartamento
 from .serializers_apartamentos import ApartamentoSerializer
