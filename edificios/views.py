@@ -4,10 +4,12 @@ from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Edificio
 from .serializers import EdificioListSerializer, EdificioDetailSerializer, EdificioCrearEditarSerializer
 from .permisos import EsSuperuser
+from .filters import EdificioFilter
 
 from .models_apartamentos import Apartamento
 from .serializers_apartamentos import ApartamentoSerializer
@@ -16,6 +18,8 @@ from .serializers_apartamentos import ApartamentoSerializer
 class ListaEdificiosAPIView(generics.ListAPIView):
     serializer_class = EdificioListSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = EdificioFilter
 
     def get_queryset(self):
         user = self.request.user
