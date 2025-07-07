@@ -2,24 +2,29 @@ from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.exceptions import PermissionDenied
 
-from rest_framework import generics
+from rest_framework import generics,status
 from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from .models import Contrato
 from .serializers_contratos import ContratoSerializer
 from .filters import ContratosFilter, MensualidadFilter
 
 from .models_mensualidades import Mensualidad
-from .serializers_mensualidades import MensualidadSerializer
+from .serializers_mensualidades import MensualidadSerializer, MensualidadCrearSerializer, MensualidadEditarSerializer, AnularMensualidadSerializer
 from .filters import MensualidadFilter
+
+from pagos.models_recibos import ReciboMensualidad
+
+from log.models import LogAccion
 
 from .permisos import(
     PuedeModificarOMostrarMensualidad,
     PuedeEliminarMensualidadSinPagos,
-    EsArrendadorYAdministraLaMensualidad
+    EsArrendadorYAdministraLaMensualidad,
+    PuedeAnularMensualidadConPagos
 )
 from usuarios.permissions import EsArrendador
 
@@ -114,3 +119,87 @@ class ContratoDetailArrendadorAPIView(generics.RetrieveUpdateDestroyAPIView):
         return Contrato.objects.filter(apartamento__edificio_id__in=edificios)
     
 #============================= MENSUALIDADES =============================
+#Vista para ver detalle de una mensualidad, accesible por arrendador, arrendatario o superusuario
+class DetalleMensualidadAPIView(generics.RetrieveAPIView):
+    queryset = Mensualidad.objects.all()
+    serializer_class = MensualidadSerializer
+    permission_classes = [IsAuthenticated, PuedeModificarOMostrarMensualidad]
+
+#Vista para crear mensualidad, accesible por superusuario
+class CrearMensualidadAPIView(generics.CreateAPIView):
+    queryset = Mensualidad.objects.all()
+    serializer_class = MensualidadCrearSerializer
+    permission_classes = [IsAdminUser]
+
+#Vista para modificar una mensualidad, accesible por arrendador o superusuario (solo campo fecha_vencimiento)
+class ActualizarMensualidadAPIView(generics.UpdateAPIView):
+    queryset = Mensualidad.objects.all()
+    serializer_class = MensualidadEditarSerializer
+    permission_classes = [IsAuthenticated, PuedeModificarOMostrarMensualidad]
+
+#Vista para eliminar una mensualidad, accesible por arrendador o superusuario (sin pagos asociados)
+class EliminarMensualidadAPIView(generics.DestroyAPIView):
+    queryset = Mensualidad.objects.all()
+    permission_classes = [PuedeEliminarMensualidadSinPagos]
+    serializer_class = MensualidadSerializer  # solo para compatibilidad, no se usa en delete
+
+    def perform_destroy(self, instance):
+        # Buscar recibo asociado
+        recibo_mensualidad = ReciboMensualidad.objects.filter(mensualidad=instance).first()
+        if recibo_mensualidad:
+            recibo = recibo_mensualidad.recibo
+
+            # Borramos la relación y luego el recibo si no tiene otras mensualidades ni gastos
+            recibo_mensualidad.delete()
+
+            if not recibo.mensualidades.exists() and not recibo.gastos.exists():
+                recibo.delete()
+
+        # 🧾 Log opcional de eliminación
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="eliminó mensualidad",
+            tabla_afectada="Mensualidad",
+            registro_id=instance.id,
+            descripcion=f"Mensualidad #{instance.id} eliminada. Fecha vencimiento: {instance.fecha_vencimiento}, contrato #{instance.contrato.id}."
+        )
+
+        instance.delete()
+
+# Vista para anular una mensualidad con pagos, accesible por arrendador o superusuario
+class AnularMensualidadAPIView(generics.GenericAPIView):
+    queryset = Mensualidad.objects.all()
+    serializer_class = AnularMensualidadSerializer
+    permission_classes = [PuedeAnularMensualidadConPagos]
+
+    def post(self, request, *args, **kwargs):
+        mensualidad = self.get_object()
+        self.check_object_permissions(request, mensualidad)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comentario = serializer.validated_data['comentario']
+
+        # Aquí marcas la mensualidad como anulada
+        mensualidad.estado = 'anulado'  # deberías agregar esta opción en Mensualidad.ESTADO_CHOICES
+        mensualidad.comentario_anulacion = comentario
+        mensualidad.save()
+
+        # Anular recibo asociado (si existe)
+        recibo_mensualidad = mensualidad.recibomensualidad_set.first()
+        if recibo_mensualidad:
+            recibo = recibo_mensualidad.recibo
+            recibo.estado = 'anulado'
+            recibo.save()
+
+        # Registrar log de anulación con comentario
+        LogAccion.objects.create(
+            usuario=request.user,
+            accion="anuló mensualidad",
+            tabla_afectada="Mensualidad",
+            registro_id=mensualidad.id,
+            descripcion=f"Mensualidad anulada con comentario: {comentario}"
+        )
+
+        return Response({"detail": "Mensualidad anulada correctamente."}, status=status.HTTP_200_OK)
+

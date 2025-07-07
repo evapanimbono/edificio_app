@@ -5,6 +5,11 @@ from .views import (
     CrearContratoAPIView,
     ContratoDetailArrendatarioAPIView,
     ContratoDetailArrendadorAPIView,
+    DetalleMensualidadAPIView,
+    CrearMensualidadAPIView,
+    ActualizarMensualidadAPIView,
+    EliminarMensualidadAPIView,
+    AnularMensualidadAPIView,
 )
 
 urlpatterns = [
@@ -14,4 +19,10 @@ urlpatterns = [
     path('crear/', CrearContratoAPIView.as_view(), name='crear-contrato'), #Crear contrato (arrendador o superusuario)
     path('detalle/<int:pk>/', ContratoDetailArrendatarioAPIView.as_view(), name='detalle-contrato-arrendatario'), # Detalle de contrato (arrendatario)
     path('<int:pk>/', ContratoDetailArrendadorAPIView.as_view(), name='detalle-contrato-arrendador'), # Detalle de contrato (arrendador o superusuario)
+
+    path('mensualidades/detalle/<int:pk>/', DetalleMensualidadAPIView.as_view(), name='detalle-mensualidad'), # Detalle de mensualidad (arrendador, arrendatario o superusuario)
+    path('mensualidades/crear/', CrearMensualidadAPIView.as_view(), name='crear_mensualidad'), # Crear mensualidad (superusuario)
+    path('mensualidades/actualizar/<int:pk>/', ActualizarMensualidadAPIView.as_view(), name='actualizar_mensualidad'), # Modificar mensualidad (arrendador o superusuario, solo fecha_vencimiento)
+    path('mensualidades/eliminar/<int:pk>/', EliminarMensualidadAPIView.as_view(), name='eliminar-mensualidad'), # Eliminar mensualidad (arrendador o superusuario, sin pagos asociados)
+    path('mensualidades/anular/<int:pk>/', AnularMensualidadAPIView.as_view(), name='anular-mensualidad'), # Anular mensualidad (arrendador o superusuario, con pagos asociados)
 ]

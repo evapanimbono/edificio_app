@@ -94,11 +94,14 @@ def crear_recibo_para_mensualidad(mensualidad, creado_por): #Crea un recibo para
             print("❌ Usuario 'sistema' no encontrado. No se puede crear el recibo.")
             return
 
+    estado = 'atrasado' if mensualidad.fecha_vencimiento < timezone.now().date() else 'pendiente'
+
     recibo = Recibo.objects.create(
         usuario=mensualidad.contrato.arrendatario,
         fecha_vencimiento=mensualidad.fecha_vencimiento,
         total_usd=total_usd,
         total_bs=None,
+        estado=estado,
         observaciones="Recibo generado automáticamente para mensualidad.",
         creado_por=creado_por
     )

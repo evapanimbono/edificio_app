@@ -13,6 +13,7 @@ class Mensualidad(models.Model):
         ('pendiente', 'Pendiente'),
         ('pagado', 'Pagado'),
         ('atrasado', 'Atrasado'),
+        ('anulado', 'Anulado'),
     ]
     contrato = models.ForeignKey('contratos.Contrato', models.DO_NOTHING)
     fecha_generacion = models.DateField()
@@ -20,6 +21,7 @@ class Mensualidad(models.Model):
     monto_usd = models.DecimalField(max_digits=10, decimal_places=2)
     saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES)
+    comentario_anulacion = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

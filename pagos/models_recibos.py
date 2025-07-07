@@ -6,6 +6,7 @@ class Recibo(models.Model):
         ('pendiente', 'Pendiente'),
         ('pagado', 'Pagado'),
         ('atrasado', 'Atrasado'),
+        ('anulado', 'Anulado'),
     ]
     usuario = models.ForeignKey(Usuario, on_delete=models.DO_NOTHING)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
