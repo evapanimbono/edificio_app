@@ -22,11 +22,12 @@ class MensualidadFilter(django_filters.FilterSet):
             'fecha_vencimiento_desde', 'fecha_vencimiento_hasta',
             'contrato', 'apartamento', 'usuario', 'edificio'
         ]
+
 class ContratosFilter(django_filters.FilterSet):
     apartamento = django_filters.NumberFilter(field_name="apartamento_id")
     usuario = django_filters.NumberFilter(field_name="arrendatario_id")
     edificio = django_filters.NumberFilter(field_name="apartamento__edificio_id")
-    estado = django_filters.ChoiceFilter(field_name="estado", choices=Contrato.ESTADO_CHOICES)
+    activo = django_filters.BooleanFilter(field_name="activo")
     fecha_inicio_desde = django_filters.DateFilter(field_name="fecha_inicio", lookup_expr="gte")
     fecha_inicio_hasta = django_filters.DateFilter(field_name="fecha_inicio", lookup_expr="lte")
     fecha_fin_desde = django_filters.DateFilter(field_name="fecha_fin", lookup_expr="gte")
@@ -35,7 +36,7 @@ class ContratosFilter(django_filters.FilterSet):
     class Meta:
         model = Contrato
         fields = [
-            'apartamento', 'usuario', 'edificio', 'estado',
+            'apartamento', 'usuario', 'edificio', 'activo',
             'fecha_inicio_desde', 'fecha_inicio_hasta',
             'fecha_fin_desde', 'fecha_fin_hasta'
         ]       
