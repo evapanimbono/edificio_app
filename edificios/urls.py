@@ -10,8 +10,6 @@ from .views import (
     DetalleApartamentoAPIView,
     CrearApartamentoAPIView,
     ActualizarApartamentoAPIView,
-    EliminarApartamentoAPIView,
-
 )
 
 #from .views import ListaApartamentosAPIView

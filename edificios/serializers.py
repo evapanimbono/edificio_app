@@ -18,3 +18,8 @@ class EdificioCrearEditarSerializer(serializers.ModelSerializer):
     class Meta:
         model = Edificio
         exclude = ['created_at', 'updated_at']
+
+    def validate_nombre(self, value):
+        if Edificio.objects.filter(nombre__iexact=value).exists():
+            raise serializers.ValidationError("Ya existe un edificio con este nombre.")
+        return value
