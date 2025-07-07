@@ -14,7 +14,7 @@ from .serializers import (
     EdificioCrearEditarSerializer
 )    
 from .permisos import EsSuperuser
-from .filters import EdificioFilter
+from .filters import EdificioFilter,ApartamentoFilter
 
 from .models_apartamentos import Apartamento
 from .serializers_apartamentos import (
@@ -123,6 +123,8 @@ class EliminarEdificioAPIView(generics.DestroyAPIView):
 class ListaApartamentosAPIView(generics.ListAPIView):
     serializer_class = ApartamentoListSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ApartamentoFilter
 
     def get_queryset(self):
         user = self.request.user
