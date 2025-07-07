@@ -1,10 +1,11 @@
 from django.shortcuts import render
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 
 from rest_framework import generics, permissions
 from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Edificio
 from .serializers import EdificioListSerializer, EdificioDetailSerializer, EdificioCrearEditarSerializer
@@ -14,6 +15,10 @@ from .filters import EdificioFilter
 from .models_apartamentos import Apartamento
 from .serializers_apartamentos import ApartamentoSerializer
 
+from log.models import LogAccion
+
+
+#========================================= EDIFICIOS =========================================
 # Listar edificios (SuperUser/Arrendador)
 class ListaEdificiosAPIView(generics.ListAPIView):
     serializer_class = EdificioListSerializer
@@ -57,12 +62,32 @@ class CrearEdificioAPIView(generics.CreateAPIView):
     permission_classes = [EsSuperuser]
     serializer_class = EdificioCrearEditarSerializer
     queryset = Edificio.objects.all()
+    
+    def perform_create(self, serializer):
+        edificio = serializer.save()
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="creó edificio",
+            tabla_afectada="Edificio",
+            registro_id=edificio.id,
+            descripcion=f"Edificio #{edificio.id} '{edificio.nombre}' creado."
+        )
 
 # Actualizar edificio (solo superuser)
 class ActualizarEdificioAPIView(generics.UpdateAPIView):
     serializer_class = EdificioCrearEditarSerializer
     permission_classes = [EsSuperuser]
     queryset = Edificio.objects.all()
+
+    def perform_update(self, serializer):
+        edificio = serializer.save()
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="actualizó edificio",
+            tabla_afectada="Edificio",
+            registro_id=edificio.id,
+            descripcion=f"Edificio #{edificio.id} '{edificio.nombre}' actualizado."
+        )
 
 # Eliminar edificio (solo superuser)
 class EliminarEdificioAPIView(generics.DestroyAPIView):
@@ -74,4 +99,15 @@ class EliminarEdificioAPIView(generics.DestroyAPIView):
             raise ValidationError("No se puede eliminar el edificio porque aún tiene usuarios asignados.")
         if instance.apartamento_set.exists():
             raise ValidationError("No se puede eliminar el edificio porque tiene apartamentos asociados.")
+
+        log_descripcion = f"Edificio #{instance.id} '{instance.nombre}' eliminado."
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="eliminó edificio",
+            tabla_afectada="Edificio",
+            registro_id=instance.id,
+            descripcion=log_descripcion
+        )
         instance.delete()
+
+#========================================= APARTAMENTOS =========================================
