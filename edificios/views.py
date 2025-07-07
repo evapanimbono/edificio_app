@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from rest_framework import generics, permissions
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -64,3 +64,10 @@ class ActualizarEdificioAPIView(generics.UpdateAPIView):
 class EliminarEdificioAPIView(generics.DestroyAPIView):
     permission_classes = [EsSuperuser]
     queryset = Edificio.objects.all()
+
+    def perform_destroy(self, instance):
+        if instance.usuarios_asignados.exists():
+            raise ValidationError("No se puede eliminar el edificio porque aún tiene usuarios asignados.")
+        if instance.apartamento_set.exists():
+            raise ValidationError("No se puede eliminar el edificio porque tiene apartamentos asociados.")
+        instance.delete()
