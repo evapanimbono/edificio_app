@@ -1,3 +1,16 @@
+# Migraciones compiladas (opcional, generalmente no necesario)
+**/migrations/*.pyc
+
+# Pytest cache (si usas pytest)
+.pytest_cache/
+
+# Coverage reports (si usas cobertura de tests)
+htmlcov/
+.coverage
+
+# Celery beat schedule (si usas celery)
+celerybeat-schedule
+
 # Python
 *.pyc
 __pycache__/
@@ -18,9 +31,23 @@ local_settings.py
 # VSCode
 .vscode/
 
+# JetBrains IDEs (PyCharm, etc.)
+.idea/
+
 #OS
 .DS_Store
 Thumbs.db
 
+# MacOS metadata extra (por si acaso)
+.AppleDouble
+.LSOverride
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
 # Secretos
 .env
+
+# Logs adicionales o archivos temporales
+*.log
+*.tmp
