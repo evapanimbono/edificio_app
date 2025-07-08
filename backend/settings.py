@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -176,3 +177,42 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Para pruebas locales
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,  # No deshabilita loggers que ya existen
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {  # Mostrar logs en consola
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {  # Opcional: guardar logs en archivo
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/django_warning.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        '': {  # Logger raíz, captura todo
+            'handlers': ['console', 'file'],  # Puedes quitar 'file' si no quieres archivo
+            'level': 'WARNING',  # Nivel mínimo para registrar (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

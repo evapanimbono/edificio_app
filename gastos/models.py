@@ -8,6 +8,9 @@
 from django.db import models
 from django.utils import timezone
 
+import logging
+logger = logging.getLogger(__name__)
+
 class GastoExtra(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
@@ -23,6 +26,41 @@ class GastoExtra(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES,default='pendiente')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def actualizar_recibo(self):
+        from pagos.models_recibos import ReciboGastoExtra
+
+        try:
+            recibo_gasto = self.recibogastoextra_set.first()
+            recibo = recibo_gasto.recibo if recibo_gasto else None
+
+            if recibo and recibo.estado in ['pendiente', 'atrasado']:
+                recibo.total_usd = self.monto_usd
+                recibo.fecha_vencimiento = self.fecha_vencimiento
+
+                # 🔁 Recalcular estado del recibo también
+                hoy = timezone.now().date()
+                if self.fecha_vencimiento and self.fecha_vencimiento < hoy:
+                    recibo.estado = 'atrasado'
+                else:
+                    recibo.estado = 'pendiente'
+
+                recibo_gasto.monto_usd = self.monto_usd
+                recibo_gasto.save()
+                recibo.save()
+
+        except AttributeError as e:
+            logger.warning(f"No se pudo actualizar recibo vinculado al gasto extra #{self.id}: {e}")
+
+    def eliminar_recibo_vinculado(self):
+        try:
+            recibo_gasto = self.recibogastoextra_set.first()
+            if recibo_gasto:
+                recibo = recibo_gasto.recibo
+                recibo_gasto.delete()
+                recibo.delete()
+        except AttributeError as e:
+            logger.warning(f"No se pudo eliminar recibo vinculado al gasto extra #{self.id}: {e}")
 
 
     def save(self, *args, **kwargs):
