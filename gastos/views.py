@@ -35,19 +35,26 @@ class ListaGastosExtraAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        
+        # 🛑 Si es arrendatario, restringimos algunos filtros
         if user.tipo_usuario == 'arrendatario':
-            # Buscar apartamentos con contratos activos para este usuario
+            forbidden_filters = ['apartamento', 'fecha_generacion_desde', 'fecha_generacion_hasta']
+            for key in forbidden_filters:
+                if key in self.request.GET:
+                    raise PermissionDenied(f"No tienes permiso para filtrar por {key}.")
+
             from contratos.models import Contrato
             apartamentos_ids = Contrato.objects.filter(
                 arrendatario=user, activo=True
             ).values_list('apartamento_id', flat=True)
 
             return GastoExtra.objects.filter(apartamento_id__in=apartamentos_ids)
-        
+
+        # ✅ Si es arrendador o superusuario
         elif user.tipo_usuario == 'arrendador' or user.is_superuser:
             edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
             return GastoExtra.objects.filter(apartamento__edificio_id__in=edificios_ids)
-    
+
         return GastoExtra.objects.none()
 
 #Vista para crear un gasto extra manual (superusuario o arrendador)
