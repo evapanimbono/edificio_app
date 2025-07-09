@@ -9,7 +9,7 @@ urlpatterns = [
     path('validar/<int:pago_id>/', ValidarPagoView.as_view(), name='validar_pago'), #Permite que el arrendador valide o rechace pagos pendientes
     path('validados/historial/', HistorialPagosView.as_view(), name='historial_pagos'), #Ver historial de pagos ya validados (por usuario)
     path('detalle/<int:id>/', DetallePagoView.as_view(), name='detalle-pago'), #Muestra el detalle completo de un pago existente
-    path('pagos/detalle-previo/', DetallePagoPrevioAPIView.as_view(), name='detalle-pago-previo'), # Detalle de pago previo (antes de registrar)
+    path('detalle-previo/', DetallePagoPrevioAPIView.as_view(), name='detalle-pago-previo'), # Detalle de pago previo (antes de registrar)
     
     path('recibos/', ListaRecibosAPIView.as_view(), name='lista_recibos'), #Lista general para arrendadores (filtrable por estado, usuario, fechas)
     path('recibos/seleccionables/', RecibosSeleccionablesAPIView.as_view(), name='recibos-seleccionables'), #Lista de recibos seleccionables (pendientes o atrasados) para pagar
