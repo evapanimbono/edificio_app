@@ -18,7 +18,7 @@ urlpatterns = [
 
     path('crear/', CrearContratoAPIView.as_view(), name='crear-contrato'), #Crear contrato (arrendador o superusuario)
     path('detalle/<int:pk>/', ContratoDetailArrendatarioAPIView.as_view(), name='detalle-contrato-arrendatario'), # Detalle de contrato (arrendatario)
-    path('<int:pk>/', ContratoDetailArrendadorAPIView.as_view(), name='detalle-contrato-arrendador'), # Detalle de contrato (arrendador o superusuario)
+    path('<int:pk>/', ContratoDetailArrendadorAPIView.as_view(), name='detalle-contrato-arrendador'), # Detalle, actualizar o eliminar un contrato (arrendador o superusuario)
 
     path('mensualidades/detalle/<int:pk>/', DetalleMensualidadAPIView.as_view(), name='detalle-mensualidad'), # Detalle de mensualidad (arrendador, arrendatario o superusuario)
     path('mensualidades/crear/', CrearMensualidadAPIView.as_view(), name='crear_mensualidad'), # Crear mensualidad (superusuario)

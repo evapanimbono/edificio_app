@@ -211,6 +211,7 @@ class ActualizarApartamentoAPIView(generics.UpdateAPIView):
             descripcion=f"Apartamento #{apartamento.id} actualizado en edificio '{apartamento.edificio.nombre}'"
         )
 
+# Eliminar apartamento (superuser y arrendador)
 class EliminarApartamentoAPIView(generics.DestroyAPIView):
     serializer_class = ApartamentoDetailSerializer
     permission_classes = [permissions.IsAuthenticated]

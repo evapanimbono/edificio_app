@@ -7,7 +7,6 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 
-
 class LogAccion(models.Model):
     usuario = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, blank=True, null=True)
     accion = models.TextField()

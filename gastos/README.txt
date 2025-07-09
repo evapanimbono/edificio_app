@@ -1,42 +1,77 @@
-# App Gastos
+📊 App Gastos
+Esta app gestiona los Gastos Extra relacionados con apartamentos en edificios, con control de acceso según el tipo de usuario 
+(superuser, arrendador, arrendatario), y acciones como crear, listar, actualizar, eliminar y consultar detalles de gastos extra.
 
-Esta app gestiona los gastos extra asociados a apartamentos dentro de edificios, junto con los recibos que se generan para cada gasto.
+🗂️ Modelo principal
+GastoExtra con campos relevantes:
+apartamento 🏢: FK al apartamento asociado
+descripcion 📝
+monto_usd 💵
+saldo_pendiente 💰
+fecha_generacion 📅
+fecha_vencimiento ⏰ (opcional)
+estado (pendiente, pagado, atrasado) ⏳✔️❌
+timestamps: created_at, updated_at
 
-## Funcionalidades
+Incluye métodos para actualizar y eliminar recibos vinculados automáticamente.
 
-- Crear, listar, editar y eliminar gastos extra.
-- Generación automática de recibos relacionados a cada gasto extra.
-- Control de estados de gastos y recibos: pendiente, pagado, atrasado, etc.
-- Validación avanzada de campos y estados, incluyendo fechas y montos.
-- Logs automáticos para registrar acciones sobre gastos.
-- Permisos para que solo usuarios autorizados (arrendadores y superusuarios) puedan gestionar gastos y recibos.
-- Filtros para buscar gastos por apartamento, monto, fechas, estado y más.
+📄 Serializers
+GastoExtraSerializer 🧾: para listar y mostrar detalles completos.
+GastoExtraCreateSerializer ➕: para crear gastos extra con validaciones, incluyendo validación de apartamento por número y contrato activo.
+GastoExtraUpdateSerializer ✏️: para actualizar descripción, monto y vencimiento con validaciones.
+GastoExtraDetailSerializer 🔍: (similar a GastoExtraSerializer con validaciones adicionales).
 
-## Modelos principales
+🔍 Vistas disponibles
+ListaGastosExtraAPIView (GET)
+Todos los usuarios autenticados pueden listar.
+Los arrendatarios ven solo gastos asociados a sus apartamentos con contratos activos.
+Arrendadores y superusuarios ven gastos de apartamentos en edificios que administran.
+Restricción: arrendatarios no pueden filtrar por apartamento ni fechas de generación.
 
-- `GastoExtra`: representa un gasto adicional asignado a un apartamento.
+CrearGastoExtraAPIView (POST)
+Solo superuser y arrendadores pueden crear gastos.
+Se crea automáticamente un recibo vinculado.
+Se registra acción en log.
+DetalleGastoExtraAPIView (GET)
+Permisos según tipo de usuario:
+Arrendatarios sólo gastos asociados a sus contratos activos.
+Arrendadores y superusuarios sólo gastos en edificios que administran.
 
-## Vistas API
+ActualizarGastoExtraAPIView (PATCH/PUT)
+Solo superuser y arrendadores.
+No se puede actualizar un gasto con pagos asociados.
+Actualiza estado según fecha vencimiento.
+Actualiza recibo asociado.
+Registra acción en log.
 
-- Listar gastos con filtros por apartamento, monto, fechas, estado, etc.
-- Crear, editar y eliminar gastos extra (con permisos adecuados).
-- Detalle individual de un gasto extra.
+EliminarGastoExtraAPIView (DELETE)
+Solo superuser y arrendadores.
+No se puede eliminar gasto pagado ni con pagos asociados.
+Elimina recibo vinculado si existe.
+Registra acción en log.
 
-## Permisos
+🔐 Permisos y validaciones
+Arrendatarios: sólo consulta gastos de sus apartamentos, con restricciones de filtro.
+Arrendadores: gestionan gastos en edificios asignados.
+Validación para que monto sea mayor a cero.
+Validación para apartamento válido con contrato activo al crear.
 
-- Solo arrendadores vinculados a edificios y superusuarios pueden acceder y modificar gastos.
-- Arrendatarios no tienen acceso para modificar gastos.
+No se permite eliminar o modificar gastos que ya tienen pagos asociados o estén pagados.
 
-## Filtros disponibles
+⚙️ Filtros disponibles (con django-filters)
+Para todos los usuarios:
+estado (pendiente, pagado, atrasado)
+monto_usd_min y monto_usd_max (rango de monto)
+fecha_vencimiento_desde y fecha_vencimiento_hasta (rango fechas vencimiento)
 
-- Apartamento (solo para arrendadores y superusuarios).
-- Monto en USD (para todos).
-- Fecha de generación (arrendadores y superusuarios).
-- Fecha de vencimiento (para todos).
-- Estado del gasto (para todos).
+Solo para arrendadores y superusuarios:
+apartamento (filtrar por apartamento ID)
+fecha_generacion_desde y fecha_generacion_hasta (rango fechas de creación)
 
-## Uso
-
-Todas las operaciones requieren autenticación. Los filtros se pasan vía query params compatibles con Django Filter.
-
----
+🔗 URLs principales
+Método	            Ruta	               Descripción	                Permisos
+GET	               /	                   Listar gastos extra	        Todos usuarios autenticados
+POST	           /crear/	               Crear un gasto extra	        Superuser, Arrendador
+GET	               /detalle/<int:pk>/	   Ver detalle de gasto extra	Según permisos
+PATCH	           /editar/<int:pk>/	   Actualizar gasto extra	    Superuser, Arrendador
+DELETE	           /eliminar/<int:pk>/	   Eliminar gasto extra	        Superuser, Arrendador

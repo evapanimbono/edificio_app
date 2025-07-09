@@ -45,4 +45,3 @@ class DetalleLogAccionAPIView(generics.RetrieveAPIView):
     serializer_class = LogAccionesSerializer
     permission_classes = [IsAuthenticated, EsArrendador | IsAdminUser]
 
-# Create your views here.
