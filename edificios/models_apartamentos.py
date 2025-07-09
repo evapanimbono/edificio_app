@@ -7,7 +7,6 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 
-
 class Apartamento(models.Model):
     ESTADO_CHOICES = [
         ('activo', 'Activo'),

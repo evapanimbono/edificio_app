@@ -210,3 +210,27 @@ class ActualizarApartamentoAPIView(generics.UpdateAPIView):
             registro_id=apartamento.id,
             descripcion=f"Apartamento #{apartamento.id} actualizado en edificio '{apartamento.edificio.nombre}'"
         )
+
+class EliminarApartamentoAPIView(generics.DestroyAPIView):
+    serializer_class = ApartamentoDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_superuser:
+            return Apartamento.objects.all()
+        elif user.tipo_usuario == 'arrendador':
+            edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
+            return Apartamento.objects.filter(edificio_id__in=edificios_ids)
+        return Apartamento.objects.none()
+
+    def perform_destroy(self, instance):
+        # Aquí podrías validar si hay contratos activos, mensualidades, etc., si lo deseas
+        LogAccion.objects.create(
+            usuario=self.request.user,
+            accion="eliminó apartamento",
+            tabla_afectada="Apartamento",
+            registro_id=instance.id,
+            descripcion=f"Apartamento #{instance.numero_apartamento} eliminado del edificio '{instance.edificio.nombre}'"
+        )
+        instance.delete()

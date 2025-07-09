@@ -10,6 +10,7 @@ from .views import (
     DetalleApartamentoAPIView,
     CrearApartamentoAPIView,
     ActualizarApartamentoAPIView,
+    EliminarApartamentoAPIView
 )
 
 #from .views import ListaApartamentosAPIView
@@ -25,4 +26,5 @@ urlpatterns = [
     path('apartamentos/detalle/<int:pk>/', DetalleApartamentoAPIView.as_view(), name='detalle_apartamento'), # Detalle apartamento (todos pueden ver)
     path('apartamentos/crear/', CrearApartamentoAPIView.as_view(), name='crear_apartamento'), # Crear apartamento (SuperUser/Arrendador)
     path('apartamentos/actualizar/<int:pk>/', ActualizarApartamentoAPIView.as_view(), name='actualizar_apartamento'), # Actualizar apartamento (SuperUser/Arrendador)
+    path('apartamentos/eliminar/<int:pk>/', EliminarApartamentoAPIView.as_view(), name='eliminar-apartamento'), #Eliminar apartamento (SuperUser/Arrendador)
 ]
