@@ -93,15 +93,11 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
 
         monto_acumulado = Decimal('0.00')
 
-        tasa = None
+        tasa = data.get("tasa_dia")
         if tipo_usuario == 'arrendador':
-            tasa_id = data.get("tasa_id")
-            if not tasa_id:
+            if not tasa:
                 return Response({"error": "Debes seleccionar una tasa si eres arrendador."}, status=400)
-    
-            tasa = get_object_or_404(TasaDia, id=tasa_id)
-
-        else:  # Arrendatario
+        else:
             tasa = TasaDia.objects.order_by('-fecha').first()
             if not tasa:
                 return Response({"error": "No hay una tasa registrada para calcular el monto en Bs."}, status=400)
@@ -114,6 +110,7 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
             monto_total=monto,
             monto_bs=monto_bs,
             tasa_usd=tasa.valor_usd_bs,
+            tasa_dia=tasa, 
             fecha_pago=fecha_pago,
             tipo_pago=tipo_pago,
             estado_validacion="validado" if tipo_usuario == 'arrendador' else "pendiente",
@@ -242,11 +239,13 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
             fecha_transferencia_str = transferencia_data.get("fecha_transferencia")
             if not fecha_transferencia_str:
                 return Response({"error": "Debes indicar la fecha de la transferencia."}, status=400)
-    
-            try:
-                fecha_transferencia = transferencia_data.get("fecha_transferencia")
-            except ValueError:
-                return Response({"error": "Formato de fecha de transferencia inválido. Usa AAAA-MM-DD."}, status=400)
+
+            fecha_transferencia = fecha_transferencia_str
+            if isinstance(fecha_transferencia, str):
+                try:
+                    fecha_transferencia = datetime.strptime(fecha_transferencia, "%Y-%m-%d").date()
+                except ValueError:
+                    return Response({"error": "Formato de fecha de transferencia inválido. Usa AAAA-MM-DD."}, status=400)
 
             # Buscar la tasa correspondiente a esa fecha
             tasa_fecha = TasaDia.objects.filter(fecha=fecha_transferencia).first()
@@ -254,7 +253,7 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
                 return Response({"error": f"No hay tasa registrada para el día {fecha_transferencia}."}, status=400)
 
              # Calcular cuánto debería haber transferido en Bs
-            total_efectivo = sum(Decimal(b.get("denominacion", 0)) for b in data.get("efectivo", []))
+            total_efectivo = sum(Decimal(b.get("denominacion") or 0) for b in data.get("efectivo", []))
             monto_usd_a_transferir = pago.monto_total - total_efectivo
 
             monto_bs_esperado = round(monto_usd_a_transferir * tasa_fecha.valor_usd_bs, 2)
@@ -477,6 +476,77 @@ class DetallePagoView(RetrieveAPIView): #Permite que el arrendador vea los detal
 
         return pago
 
+#Detalle de pago previo (antes de registrar el pago)
+class DetallePagoPrevioAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        usuario = request.user
+        recibo_ids = request.data.get('recibos_id', [])
+
+        if not isinstance(recibo_ids, list) or not recibo_ids:
+            return Response({"error": "Debes enviar una lista de IDs de recibos."}, status=400)
+
+        recibos = Recibo.objects.filter(id__in=recibo_ids)
+
+        # Seguridad: validar acceso a esos recibos
+        if usuario.tipo_usuario == 'arrendatario':
+            recibos = recibos.filter(usuario=usuario)
+        elif usuario.tipo_usuario == 'arrendador':
+            edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
+            recibos = recibos.filter(
+                Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
+                Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids)
+            ).distinct()
+        else:
+            return Response({"error": "No tienes permiso para esta acción."}, status=403)
+
+        total_usd = Decimal('0.00')
+        detalle = {"mensualidades": [], "gastos_extra": []}
+
+        for r in recibos:
+            for rm in r.mensualidades.all():
+                mensualidad = rm.mensualidad
+                if mensualidad.estado in ['pendiente', 'atrasado'] and mensualidad.saldo_pendiente > 0:
+                    monto = mensualidad.saldo_pendiente
+                    total_usd += monto
+                    detalle["mensualidades"].append({
+                        "id": mensualidad.id,
+                        "recibo_id": r.id,
+                        "monto_usd": float(monto),
+                        "fecha_vencimiento": mensualidad.fecha_vencimiento,
+                        "estado": mensualidad.estado
+                    })
+
+            for rg in r.gastos.all():
+                gasto = rg.gasto_extra
+                if gasto.estado in ['pendiente', 'atrasado'] and gasto.saldo_pendiente > 0:
+                    monto = gasto.saldo_pendiente
+                    total_usd += monto
+                    detalle["gastos_extra"].append({
+                        "id": gasto.id,
+                        "recibo_id": r.id,
+                        "monto_usd": float(monto),
+                        "descripcion": gasto.descripcion,
+                        "estado": gasto.estado
+                    })
+
+        if total_usd == 0:
+            return Response({"error": "No hay deuda activa en los recibos seleccionados."}, status=400)
+
+        tasa = TasaDia.objects.order_by('-fecha').first()
+        if not tasa:
+            return Response({"error": "No hay tasa registrada."}, status=400)
+
+        total_bs = total_usd * tasa.valor_usd_bs
+
+        return Response({
+            "total_usd": float(total_usd),
+            "tasa_usd_bs": float(tasa.valor_usd_bs),
+            "total_bs_estimado": float(round(total_bs, 2)),
+            "detalle": detalle
+        })
+
 #========================================================================================================================    
 #Vistas recibos
 class RecibosDelUsuarioView(APIView): #Permite que el arrendatario vea sus recibos (pendientes, atrasados o pagados)
@@ -640,6 +710,53 @@ class GenerarReciboAPIView(APIView): # Superuser genera recibos manuales o se ge
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
  
+#Lista de recibos seleccionables (pendientes o atrasados) para pagar
+class RecibosSeleccionablesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        usuario = request.user
+
+        if usuario.tipo_usuario == 'arrendatario':
+            recibos = Recibo.objects.filter(
+                usuario=usuario,
+                estado__in=['pendiente', 'atrasado']
+            )
+
+        elif usuario.tipo_usuario == 'arrendador':
+            edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
+            recibos = Recibo.objects.filter(
+                Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
+                Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids),
+                estado__in=['pendiente', 'atrasado']
+            ).distinct()
+
+        else:
+            return Response({"error": "No tienes permiso para esta acción."}, status=403)
+
+        # Filtrar solo los que tienen saldo pendiente > 0
+        seleccionables = []
+        tasa = TasaDia.objects.order_by('-fecha').first()
+        for r in recibos:
+            saldo_usd = Decimal('0.00')
+            for rm in r.mensualidades.all():
+                saldo_usd += rm.mensualidad.saldo_pendiente
+            for rg in r.gastos.all():
+                saldo_usd += rg.gasto_extra.saldo_pendiente
+
+            if saldo_usd > 0:
+                estimado_bs = round(saldo_usd * tasa.valor_usd_bs, 2) if tasa else None
+                seleccionables.append({
+                    "id": r.id,
+                    "estado": r.estado,
+                    "fecha_emision": r.fecha_emision,
+                    "fecha_vencimiento": r.fecha_vencimiento,
+                    "total_usd": float(r.total_usd),
+                    "saldo_usd": float(saldo_usd),
+                    "monto_estimado_bs": float(estimado_bs) if estimado_bs is not None else None,
+                })
+
+        return Response(seleccionables)
 
 
 

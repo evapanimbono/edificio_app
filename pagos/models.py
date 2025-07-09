@@ -8,6 +8,8 @@
 from django.db import models
 from usuarios.models import Usuario
 
+from tasas.models import TasaDia 
+
 class Pago(models.Model):
     TIPO_CHOICES = [
         ('efectivo', 'Efectivo'),
@@ -24,6 +26,7 @@ class Pago(models.Model):
     fecha_pago = models.DateField()
     monto_total = models.DecimalField(max_digits=10, decimal_places=2)
     tasa_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    tasa_dia = models.ForeignKey(TasaDia,on_delete=models.PROTECT,blank=True,null=True,related_name='pagos',help_text="Tasa del día usada para calcular este pago")
     monto_bs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     estado_validacion = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     observaciones = models.TextField(blank=True, null=True)

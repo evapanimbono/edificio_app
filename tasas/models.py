@@ -7,7 +7,6 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 
-
 class TasaDia(models.Model):
     fecha = models.DateField(unique=True)
     valor_usd_bs = models.DecimalField(max_digits=12, decimal_places=4)
