@@ -3,7 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
 
-from rest_framework import generics,status,filters
+from rest_framework import generics,status,filters,permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
@@ -17,11 +17,14 @@ from decimal import Decimal,InvalidOperation
 from .models import Pago,PagoEfectivo,PagoTransferencias,PagoMensualidad, PagoGastoExtra
 from .serializers_pagos import PagoSerializer,PagoEfectivoSerializer,PagoTransferenciaSerializer,PagoRegistroSerializer,DetallePagoSerializer
 from .filters import PagoFilter
-from .permisos import EsArrendadorYAdministraElPago
+from .permisos import EsArrendadorYAdministraElPago, EsArrendatarioYEsDueñoDelPago, EsArrendadorYAdministraElRecibo, EsArrendatarioYEsDueñoDelRecibo
 from pagos.tareas import actualizar_estado_recibo_si_pagado
 
 from .models_recibos import Recibo, ReciboMensualidad, ReciboGastoExtra
-from .serializers_recibos import ReciboSerializer, ReciboMensualidadSerializer, ReciboGastoExtraSerializer,GenerarReciboSerializer
+from .serializers_recibos import (
+    ReciboSerializer,
+    GenerarReciboSerializer,
+)
 
 from usuarios.models import Usuario
 from usuarios.permissions import EsArrendatario,EsArrendador
@@ -758,5 +761,12 @@ class RecibosSeleccionablesAPIView(APIView):
 
         return Response(seleccionables)
 
-
+#Vista detalle de un recibo específico
+class ReciboDetalleAPIView(RetrieveAPIView):
+    queryset = Recibo.objects.all()
+    serializer_class = ReciboSerializer
+    permission_classes = [IsAuthenticated, 
+                          # Custom permissions para que solo arrendatarios vean sus recibos y arrendadores los suyos
+                          permissions.OR(EsArrendatarioYEsDueñoDelRecibo, EsArrendadorYAdministraElRecibo)]
+    lookup_field = 'id'
 

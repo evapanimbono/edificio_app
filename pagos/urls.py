@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import ListaPagosAPIView,RegistrarPagoView,ValidarPagoView,HistorialPagosView,DetallePagoView,DetallePagoPrevioAPIView
 
-from .views import ListaRecibosAPIView,RecibosDelUsuarioView,GenerarReciboAPIView,RecibosSeleccionablesAPIView
+from .views import ListaRecibosAPIView,RecibosDelUsuarioView,GenerarReciboAPIView,RecibosSeleccionablesAPIView,ReciboDetalleAPIView
 
 urlpatterns = [
     path('', ListaPagosAPIView.as_view(), name='lista_pagos'), #Listar pagos filtrables (por tipo de usuario: arrendador ve pagos de su edificio, arrendatario ve los suyos)
@@ -14,5 +14,6 @@ urlpatterns = [
     path('recibos/', ListaRecibosAPIView.as_view(), name='lista_recibos'), #Lista general para arrendadores (filtrable por estado, usuario, fechas)
     path('recibos/seleccionables/', RecibosSeleccionablesAPIView.as_view(), name='recibos-seleccionables'), #Lista de recibos seleccionables (pendientes o atrasados) para pagar
     path('recibos/usuario/', RecibosDelUsuarioView.as_view(), name='recibos_usuario'), #Arrendatario ve todos sus recibos (pendientes, atrasados o pagados)
+    path('recibos/<int:id>/', ReciboDetalleAPIView.as_view(), name='detalle-recibo'), #Detalle de un recibo específico (por id)
     path('recibos/generar/', GenerarReciboAPIView.as_view(), name='generar_recibo'), #Permite al superusuario generar recibos (manualmente)
 ]

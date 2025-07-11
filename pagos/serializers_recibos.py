@@ -7,6 +7,9 @@ from .models_recibos import Recibo, ReciboMensualidad, ReciboGastoExtra
 from .models import PagoEfectivo,PagoTransferencias, Pago
 from tasas.models import TasaDia
 
+from contratos.serializers_mensualidades import MensualidadSerializer
+from gastos.serializers import GastoExtraSerializer
+
 class ReciboMensualidadSerializer(serializers.ModelSerializer):
     mensualidad_monto_usd = serializers.DecimalField(source="mensualidad.monto_usd", max_digits=10, decimal_places=2, read_only=True)
     mensualidad_fecha_vencimiento = serializers.DateField(source="mensualidad.fecha_vencimiento", read_only=True)
@@ -86,7 +89,7 @@ class ReciboSerializer(serializers.ModelSerializer):
             resultado["transferencia_bs"] = float(transferencia_total)
 
         return resultado if resultado else None
-
+       
 class GenerarReciboSerializer(serializers.Serializer):
     usuario_id = serializers.IntegerField()
     mensualidades_id = serializers.ListField(
@@ -99,3 +102,4 @@ class GenerarReciboSerializer(serializers.Serializer):
         if not data.get('mensualidades_id') and not data.get('gastos_extra_id'):
             raise serializers.ValidationError("Debes seleccionar al menos una mensualidad o gasto extra.")
         return data
+
