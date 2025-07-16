@@ -32,8 +32,6 @@ class MensualidadCrearSerializer(serializers.ModelSerializer):
             estado='atrasado' if validated_data['fecha_vencimiento'] < timezone.now().date() else 'pendiente'
         )
 
-        crear_recibo_para_mensualidad(mensualidad, creado_por=self.context['request'].user)
-
         LogAccion.objects.create(
             usuario=self.context['request'].user,
             accion="creó mensualidad",
@@ -51,8 +49,12 @@ class MensualidadEditarSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         mensualidad = self.instance
-        if mensualidad.estado == 'pagado':
-            raise serializers.ValidationError("No se puede modificar una mensualidad ya pagada.")
+        if mensualidad.estado in ['pagado', 'anulado']:
+            raise serializers.ValidationError("No se puede modificar una mensualidad pagada o anulada.")
+        
+        if mensualidad.pagomensualidad_set.exists():
+            raise serializers.ValidationError("No se puede modificar una mensualidad con pagos registrados.")
+    
         return data
 
     def update(self, instance, validated_data):

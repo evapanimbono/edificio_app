@@ -226,13 +226,6 @@ class AnularMensualidadAPIView(generics.GenericAPIView):
         mensualidad.comentario_anulacion = comentario
         mensualidad.save()
 
-        # Anular recibo asociado (si existe)
-        recibo_mensualidad = mensualidad.recibomensualidad_set.first()
-        if recibo_mensualidad:
-            recibo = recibo_mensualidad.recibo
-            recibo.estado = 'anulado'
-            recibo.save()
-
         # Registrar log de anulación con comentario
         LogAccion.objects.create(
             usuario=request.user,
