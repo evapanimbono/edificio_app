@@ -7,7 +7,7 @@ from rest_framework import generics,status
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
-from rest_framework.generics import RetrieveAPIView,UpdateAPIView,DestroyAPIView
+from rest_framework.generics import RetrieveAPIView,UpdateAPIView,DestroyAPIView,GenericAPIView
 from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework import serializers
 
@@ -22,7 +22,8 @@ from log.models import LogAccion
 from usuarios.permissions import EsArrendador
 
 from pagos.models import PagoGastoExtra
-from pagos.tareas import crear_recibo_para_gasto_extra
+
+from contratos.serializers_mensualidades import AnularMensualidadSerializer
 
 #Lista de gastos extra según el tipo de usuario (Todos)
 class ListaGastosExtraAPIView(generics.ListAPIView):
@@ -65,9 +66,6 @@ class CrearGastoExtraAPIView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         gasto = serializer.save()
-        recibo = crear_recibo_para_gasto_extra(gasto, creado_por=self.request.user)
-        if not recibo:
-            raise serializers.ValidationError("No se pudo crear recibo para el gasto extra. Verifique que el apartamento tenga contrato activo.")
 
         # Log de creación
         LogAccion.objects.create(
@@ -133,9 +131,6 @@ class ActualizarGastoExtraAPIView(UpdateAPIView):
             instance.estado = 'atrasado' if instance.fecha_vencimiento < hoy else 'pendiente'
             instance.save()
 
-        # Actualizar recibo asociado aunque no haya cambios explícitos en monto o vencimiento
-        instance.actualizar_recibo()
-
         # Log
         LogAccion.objects.create(
             usuario=user,
@@ -145,7 +140,40 @@ class ActualizarGastoExtraAPIView(UpdateAPIView):
             descripcion=f"Gasto extra #{instance.id} editado para apartamento {instance.apartamento.numero_apartamento if instance.apartamento else 'desconocido'}"
         )
 
-# Vista para eliminar un gasto extra (solo arrendador o superusuario)
+#Vista para anular un gasto extra si hay un pago asociado anulado (solo arrendador o superusuario)
+class AnularGastoExtraAPIView(GenericAPIView):
+    queryset = GastoExtra.objects.all()
+    serializer_class = AnularMensualidadSerializer  # puedes reutilizar el mismo
+    permission_classes = [IsAuthenticated, EsArrendador]
+
+    def post(self, request, *args, **kwargs):
+        gasto = self.get_object()
+        self.check_object_permissions(request, gasto)
+
+        if gasto.estado == 'anulado':
+            return Response({"detail": "Este gasto ya está anulado."}, status=400)
+
+        if not PagoGastoExtra.objects.filter(gasto_extra=gasto).exists():
+            return Response({"detail": "Este gasto no tiene pagos asociados. Puedes eliminarlo en vez de anularlo."}, status=400)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comentario = serializer.validated_data['comentario']
+
+        gasto.estado = 'anulado'
+        gasto.save()
+
+        LogAccion.objects.create(
+            usuario=request.user,
+            accion="anuló gasto extra",
+            tabla_afectada="gastos_extra",
+            registro_id=gasto.id,
+            descripcion=f"Gasto extra anulado con comentario: {comentario}"
+        )
+
+        return Response({"detail": "Gasto extra anulado correctamente."}, status=200)
+
+# Vista para eliminar un gasto extra si no hay pago asociado (solo arrendador o superusuario) 
 class EliminarGastoExtraAPIView(DestroyAPIView):
     queryset = GastoExtra.objects.all()
     permission_classes = [IsAuthenticated, EsArrendador]
@@ -161,9 +189,6 @@ class EliminarGastoExtraAPIView(DestroyAPIView):
         pagos_asociados = PagoGastoExtra.objects.filter(gasto_extra=instance).exists()
         if pagos_asociados:
             raise ValidationError("Este gasto extra no puede eliminarse porque tiene pagos registrados.")
-
-        # 🧹 Eliminar recibo y vínculo ReciboGastoExtra si existen
-        instance.eliminar_recibo_vinculado()
 
         # 🗑️ Eliminar el gasto extra
         gasto_id = instance.id

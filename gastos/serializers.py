@@ -8,6 +8,8 @@ from contratos.models import Contrato
 
 from .models import GastoExtra
 
+from pagos.models import PagoGastoExtra
+
 class GastoExtraSerializer(serializers.ModelSerializer):
     apartamento_numero = serializers.SerializerMethodField()
 
@@ -79,6 +81,17 @@ class GastoExtraUpdateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("El monto debe ser mayor a 0.")
         return value
+    
+    def validate(self, data):
+        instance = self.instance
+
+        if instance.estado in ['pagado', 'anulado']:
+            raise serializers.ValidationError("No se puede editar un gasto pagado o anulado.")
+
+        if PagoGastoExtra.objects.filter(gasto_extra=instance).exists():
+            raise serializers.ValidationError("No se puede editar un gasto que ya tiene pagos registrados.")
+
+        return data
 
 class GastoExtraDetailSerializer(serializers.ModelSerializer):
     
