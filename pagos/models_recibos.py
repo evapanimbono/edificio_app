@@ -3,15 +3,12 @@ from usuarios.models import Usuario
 
 class Recibo(models.Model):
     ESTADO_CHOICES = [
-        ('pendiente', 'Pendiente'),
         ('pagado', 'Pagado'),
-        ('atrasado', 'Atrasado'),
         ('anulado', 'Anulado'),
     ]
     usuario = models.ForeignKey(Usuario, on_delete=models.DO_NOTHING)
-    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pagado')
     fecha_emision = models.DateTimeField(auto_now_add=True)
-    fecha_vencimiento = models.DateField(null=True, blank=True)
     total_usd = models.DecimalField(max_digits=10, decimal_places=2)
     total_bs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     observaciones = models.TextField(blank=True, null=True)

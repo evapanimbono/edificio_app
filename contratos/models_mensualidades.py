@@ -8,6 +8,8 @@
 from django.db import models
 from django.utils import timezone
 
+from tasas.models import TasaDia
+
 class Mensualidad(models.Model):
     ESTADO_CHOICES = [
         ('pendiente', 'Pendiente'),
@@ -19,6 +21,8 @@ class Mensualidad(models.Model):
     fecha_generacion = models.DateField()
     fecha_vencimiento = models.DateField()
     monto_usd = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_bs_pagado = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    tasa_usada = models.ForeignKey(TasaDia, null=True, blank=True, on_delete=models.SET_NULL)
     saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     comentario_anulacion = models.TextField(null=True, blank=True)
@@ -29,6 +33,15 @@ class Mensualidad(models.Model):
         if not self.pk and (self.saldo_pendiente == 0 or self.saldo_pendiente is None):
             self.saldo_pendiente = self.monto_usd
         super().save(*args, **kwargs)
+
+    @property
+    def monto_bs_actual(self):
+        if self.estado == 'pagado' and self.monto_bs_pagado is not None:
+            return self.monto_bs_pagado
+        tasa = TasaDia.objects.filter(activa=True).order_by('-fecha').first()
+        if tasa:
+            return round(Decimal(self.monto_usd) * tasa.valor, 2)
+        return None  # o 0 si prefieres
 
     def __str__(self):
         return f"{self.contrato} - {self.fecha_vencimiento} - {self.estado}"

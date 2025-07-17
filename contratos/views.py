@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 
 from rest_framework import generics,status
 from rest_framework.generics import CreateAPIView
@@ -13,7 +13,7 @@ from .serializers_contratos import ContratoSerializer
 from .filters import ContratosFilter, MensualidadFilter
 
 from .models_mensualidades import Mensualidad
-from .serializers_mensualidades import MensualidadSerializer, MensualidadCrearSerializer, MensualidadEditarSerializer, AnularMensualidadSerializer
+from .serializers_mensualidades import MensualidadSerializer, MensualidadCrearSerializer, MensualidadEditarSerializer, ComentarioAnulacionSerializer
 from .filters import MensualidadFilter
 
 from pagos.models_recibos import ReciboMensualidad
@@ -182,27 +182,17 @@ class ActualizarMensualidadAPIView(generics.UpdateAPIView):
 class EliminarMensualidadAPIView(generics.DestroyAPIView):
     queryset = Mensualidad.objects.all()
     permission_classes = [PuedeEliminarMensualidadSinPagos]
-    serializer_class = MensualidadSerializer  # solo para compatibilidad, no se usa en delete
 
     def perform_destroy(self, instance):
-        # Buscar recibo asociado
-        recibo_mensualidad = ReciboMensualidad.objects.filter(mensualidad=instance).first()
-        if recibo_mensualidad:
-            recibo = recibo_mensualidad.recibo
+        usuario = self.request.user
+        descripcion = f"Eliminó mensualidad ID {instance.id} del contrato ID {instance.contrato_id}"
 
-            # Borramos la relación y luego el recibo si no tiene otras mensualidades ni gastos
-            recibo_mensualidad.delete()
-
-            if not recibo.mensualidades.exists() and not recibo.gastos.exists():
-                recibo.delete()
-
-        # 🧾 Log opcional de eliminación
+        # Log
         LogAccion.objects.create(
-            usuario=self.request.user,
-            accion="eliminó mensualidad",
-            tabla_afectada="Mensualidad",
-            registro_id=instance.id,
-            descripcion=f"Mensualidad #{instance.id} eliminada. Fecha vencimiento: {instance.fecha_vencimiento}, contrato #{instance.contrato.id}."
+            usuario=usuario,
+            accion='eliminar',
+            tabla_afectada='Mensualidad',
+            descripcion=descripcion
         )
 
         instance.delete()
@@ -210,29 +200,37 @@ class EliminarMensualidadAPIView(generics.DestroyAPIView):
 # Vista para anular una mensualidad con pagos, accesible por arrendador o superusuario
 class AnularMensualidadAPIView(generics.GenericAPIView):
     queryset = Mensualidad.objects.all()
-    serializer_class = AnularMensualidadSerializer
+    serializer_class = ComentarioAnulacionSerializer
     permission_classes = [PuedeAnularMensualidadConPagos]
 
     def post(self, request, *args, **kwargs):
         mensualidad = self.get_object()
-        self.check_object_permissions(request, mensualidad)
-
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        comentario = serializer.validated_data['comentario']
+
+        comentario = serializer.validated_data.get("comentario", "").strip()
+
+        if mensualidad.estado == 'anulado':
+            raise ValidationError("La mensualidad ya está anulada.")
+        
+        if mensualidad.estado == 'pagado':
+            raise ValidationError("No se puede anular una mensualidad pagada. Anule el pago primero.")
+
+        if not comentario:
+            raise ValidationError("Debe proporcionar un comentario para anular la mensualidad.")
 
         # Aquí marcas la mensualidad como anulada
         mensualidad.estado = 'anulado'  # deberías agregar esta opción en Mensualidad.ESTADO_CHOICES
         mensualidad.comentario_anulacion = comentario
         mensualidad.save()
 
-        # Registrar log de anulación con comentario
+        # Registrar log
         LogAccion.objects.create(
             usuario=request.user,
             accion="anuló mensualidad",
             tabla_afectada="Mensualidad",
             registro_id=mensualidad.id,
-            descripcion=f"Mensualidad anulada con comentario: {comentario}"
+            descripcion=f"Mensualidad #{mensualidad.id} anulada. Comentario: {comentario}"
         )
 
         return Response({"detail": "Mensualidad anulada correctamente."}, status=status.HTTP_200_OK)

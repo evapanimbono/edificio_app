@@ -29,43 +29,30 @@ class ReciboGastoExtraSerializer(serializers.ModelSerializer):
 class ReciboSerializer(serializers.ModelSerializer):
     mensualidades = ReciboMensualidadSerializer(many=True, read_only=True)
     gastos = ReciboGastoExtraSerializer(many=True, read_only=True)
-    monto_estimado_bs = serializers.SerializerMethodField()
     pagado_en = serializers.SerializerMethodField()
 
     class Meta:
         model = Recibo
         fields = [
-            'id', 'usuario', 'estado', 'fecha_emision', 'fecha_vencimiento',
-            'total_usd', 'total_bs', 'monto_estimado_bs',
+            'id', 'usuario', 'estado', 'fecha_emision',
+            'total_usd', 'total_bs',
             'observaciones', 'creado_por', 'created_at', 'updated_at',
             'mensualidades', 'gastos',
             'pagado_en'
         ]
-
-    def get_monto_estimado_bs(self, obj):
-        if obj.estado == 'pagado':
-            return obj.total_bs
-
-        saldo_usd = Decimal('0.00')
-        for rm in obj.mensualidades.all():
-            saldo_usd += rm.mensualidad.saldo_pendiente
-        for rg in obj.gastos.all():
-            saldo_usd += rg.gasto_extra.saldo_pendiente
-
-        tasa = TasaDia.objects.order_by('-fecha').first()
-        if not tasa:
-            return None
-        
-        return round(saldo_usd * tasa.valor_usd_bs, 2)
     
     def get_pagado_en(self, obj):
         if obj.estado != 'pagado':
             return None
 
+        # Obtener listas de mensualidades y gastos para filtro
+        mensualidades_list = [rm.mensualidad for rm in obj.mensualidades.all()]
+        gastos_list = [rg.gasto_extra for rg in obj.gastos.all()]
+
         # Buscar los pagos asociados al recibo a través de las mensualidades y gastos
         pagos = Pago.objects.filter(
-            Q(mensualidades_pagadas__mensualidad__in=[rm.mensualidad for rm in obj.mensualidades.all()]) |
-            Q(gastos_pagados__gasto_extra__in=[rg.gasto_extra for rg in obj.gastos.all()])
+            Q(mensualidades_pagadas__mensualidad__in=mensualidades_list) |
+            Q(gastos_pagados__gasto_extra__in=gastos_list)
         ).distinct()
 
         if not pagos.exists():
@@ -88,18 +75,5 @@ class ReciboSerializer(serializers.ModelSerializer):
         if transferencia_total > 0:
             resultado["transferencia_bs"] = float(transferencia_total)
 
-        return resultado if resultado else None
+        return resultado or None
        
-class GenerarReciboSerializer(serializers.Serializer):
-    usuario_id = serializers.IntegerField()
-    mensualidades_id = serializers.ListField(
-        child=serializers.IntegerField(), required=False)
-    gastos_extra_id = serializers.ListField(
-        child=serializers.IntegerField(), required=False)
-    observaciones = serializers.CharField(required=False, allow_blank=True)
-
-    def validate(self, data):
-        if not data.get('mensualidades_id') and not data.get('gastos_extra_id'):
-            raise serializers.ValidationError("Debes seleccionar al menos una mensualidad o gasto extra.")
-        return data
-

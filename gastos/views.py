@@ -16,14 +16,13 @@ from .serializers import GastoExtraSerializer,GastoExtraCreateSerializer,GastoEx
 from .filters import GastoExtraFilter
 
 from contratos.models import Contrato
+from contratos.serializers_mensualidades import ComentarioAnulacionSerializer
 
 from log.models import LogAccion
 
 from usuarios.permissions import EsArrendador
 
 from pagos.models import PagoGastoExtra
-
-from contratos.serializers_mensualidades import AnularMensualidadSerializer
 
 #Lista de gastos extra según el tipo de usuario (Todos)
 class ListaGastosExtraAPIView(generics.ListAPIView):
@@ -143,12 +142,15 @@ class ActualizarGastoExtraAPIView(UpdateAPIView):
 #Vista para anular un gasto extra si hay un pago asociado anulado (solo arrendador o superusuario)
 class AnularGastoExtraAPIView(GenericAPIView):
     queryset = GastoExtra.objects.all()
-    serializer_class = AnularMensualidadSerializer  # puedes reutilizar el mismo
+    serializer_class = ComentarioAnulacionSerializer  # puedes reutilizar el mismo
     permission_classes = [IsAuthenticated, EsArrendador]
 
     def post(self, request, *args, **kwargs):
         gasto = self.get_object()
         self.check_object_permissions(request, gasto)
+
+        if gasto.estado == 'pagado':
+            return Response({"detail": "No se puede anular un gasto extra pagado. Primero anule el pago."}, status=400)
 
         if gasto.estado == 'anulado':
             return Response({"detail": "Este gasto ya está anulado."}, status=400)
@@ -161,6 +163,7 @@ class AnularGastoExtraAPIView(GenericAPIView):
         comentario = serializer.validated_data['comentario']
 
         gasto.estado = 'anulado'
+        gasto.comentario_anulacion = comentario
         gasto.save()
 
         LogAccion.objects.create(

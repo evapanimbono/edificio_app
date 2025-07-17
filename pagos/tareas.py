@@ -53,10 +53,6 @@ def actualizar_estados_vencidos(): #Actualiza los estados de mensualidades y gas
             descripcion=f"Se marcó como atrasado el gasto extra con vencimiento {g.fecha_vencimiento}."
         )
 
-    # ⏱️ Revisar recibos después de actualizar mensualidades y gastos
-    # Esperar hasta que se guarden todos los cambios antes de actualizar recibos
-    transaction.on_commit(actualizar_recibos_vencidos) 
-
 def crear_recibo_para_mensualidad(mensualidad, creado_por): #Crea un recibo para una mensualidad nueva (depende de contratos.tareas.crear_mensualidad)
     """
     Crea un recibo automático para una mensualidad nueva.
@@ -186,51 +182,6 @@ def crear_recibo_para_gasto_extra(gasto, creado_por): #Crea un recibo para un ga
 
     print(f"🧾 Recibo #{recibo.id} generado para gasto extra {gasto.id}")
     return recibo
-
-def actualizar_recibos_vencidos(): #Actualiza los recibos vencidos a estado atrasado (depende de actualizar_estados_vencidos)
-    """
-    Revisa todos los recibos pendientes cuya fecha de vencimiento ya pasó.
-    Si el ítem (mensualidad o gasto extra) aún tiene saldo pendiente, se marca el recibo como atrasado.
-    """
-    hoy = timezone.now().date()
-    recibos = Recibo.objects.filter(
-        estado='pendiente',
-        fecha_vencimiento__lt=hoy
-    )
-
-    usuario_sistema = Usuario.objects.filter(username='sistema').first()
-    actualizados = 0
-
-    for recibo in recibos:
-        vencido = False
-
-        # Revisar mensualidades asociadas
-        for rm in recibo.mensualidades.all():
-            if rm.mensualidad.saldo_pendiente > 0:
-                vencido = True
-
-        # Revisar gastos extra asociados
-        for rg in recibo.gastos.all():
-            if rg.gasto_extra.saldo_pendiente > 0:
-                vencido = True
-
-        if vencido:
-            recibo.estado = 'atrasado'
-            recibo.save()
-            actualizados += 1
-            print(f"⚠️ Recibo #{recibo.id} marcado como atrasado.")
-
-            # ✅ Crear log del cambio de estado
-            LogAccion.objects.create(
-                usuario=usuario_sistema,
-                accion='actualizó estado a atrasado',
-                tabla_afectada='Recibo',
-                registro_id=recibo.id,
-                descripcion=f"Recibo vencido con fecha {recibo.fecha_vencimiento} marcado como atrasado por tener saldo pendiente."
-            )
-
-
-    print(f"✅ Recibos vencidos actualizados: {actualizados}")
 
 def actualizar_estado_recibo_si_pagado(recibo, pago=None): #Actualiza el estado del recibo a pagado si todos los items están pagados y validados
     """

@@ -28,6 +28,11 @@ class GastoExtraCreateSerializer(serializers.ModelSerializer):
         # Excluimos los campos automáticos para que no los pidan
         exclude = ['apartamento','saldo_pendiente', 'fecha_generacion', 'estado', 'created_at', 'updated_at']
 
+    def validate(self, data):
+        if not data.get("fecha_vencimiento"):
+            raise serializers.ValidationError("La fecha de vencimiento es obligatoria.")
+        return data
+
     def validate_apartamento_numero(self, value):
         # Buscar apartamento por número
         try:

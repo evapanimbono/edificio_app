@@ -7,9 +7,55 @@ from log.models import LogAccion
 from pagos.tareas import crear_recibo_para_mensualidad
 
 class MensualidadSerializer(serializers.ModelSerializer):
+    monto_bs_actual = serializers.SerializerMethodField()
+    monto_bs_pagado = serializers.SerializerMethodField()
+    tasa_usada = serializers.SerializerMethodField()
+    comentario_anulacion = serializers.CharField(read_only=True)
+
     class Meta:
         model = Mensualidad
-        fields = '__all__'
+        fields = [
+            'id', 'contrato', 'fecha_generacion', 'fecha_vencimiento',
+            'monto_usd', 'saldo_pendiente', 'estado',
+            'monto_bs_actual', 'monto_bs_pagado', 'tasa_usada', 'comentario_anulacion',
+        ]
+
+    def get_monto_bs_actual(self, obj):
+        return obj.monto_bs_actual  # Propiedad del modelo
+    
+    def get_monto_bs_pagado(self, obj):
+        if obj.estado == 'pagado':
+            return obj.monto_bs_pagado  # También asumes que existe en el modelo o se calcula
+        return None
+
+    def get_tasa_usada(self, obj):
+        if obj.estado == 'pagado':
+            return obj.tasa_usada  # Idem
+        return None
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+
+        # Eliminar campos que no aplican
+        if instance.estado != 'pagado':
+            rep.pop('monto_bs_pagado', None)
+            rep.pop('tasa_usada', None)
+
+        if instance.estado != 'anulado':
+            rep.pop('comentario_anulacion', None)
+
+        return rep
+
+class MensualidadParaPagoSerializer(serializers.ModelSerializer):
+    monto_bs_actual = serializers.SerializerMethodField()
+    contrato_id = serializers.IntegerField(source='contrato.id', read_only=True)
+
+    class Meta:
+        model = Mensualidad
+        fields = ['id', 'contrato_id', 'fecha_vencimiento', 'monto_usd', 'monto_bs_actual', 'estado']
+
+    def get_monto_bs_actual(self, obj):
+        return obj.monto_bs_actual
 
 class MensualidadCrearSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,6 +66,10 @@ class MensualidadCrearSerializer(serializers.ModelSerializer):
         contrato = data.get('contrato')
         if not contrato.activo:
             raise serializers.ValidationError("El contrato debe estar activo.")
+        
+        if not data.get("fecha_vencimiento"):
+            raise serializers.ValidationError("La fecha de vencimiento es obligatoria.")
+        
         return data
 
     def create(self, validated_data):
@@ -52,9 +102,6 @@ class MensualidadEditarSerializer(serializers.ModelSerializer):
         if mensualidad.estado in ['pagado', 'anulado']:
             raise serializers.ValidationError("No se puede modificar una mensualidad pagada o anulada.")
         
-        if mensualidad.pagomensualidad_set.exists():
-            raise serializers.ValidationError("No se puede modificar una mensualidad con pagos registrados.")
-    
         return data
 
     def update(self, instance, validated_data):
@@ -66,16 +113,16 @@ class MensualidadEditarSerializer(serializers.ModelSerializer):
         instance.estado = estado_mensualidad
         instance.save()
 
-        # Buscar recibo asociado si existe
-        recibo_rel = instance.recibomensualidad_set.first()
-        if recibo_rel:
-            recibo = recibo_rel.recibo
-            if recibo.estado in ['pendiente', 'atrasado']:
-                recibo.fecha_vencimiento = nueva_fecha
-                recibo.estado = estado_mensualidad
-                recibo.save()
+         # Agregar log de modificación
+        LogAccion.objects.create(
+            usuario=self.context['request'].user,
+            accion="modificó mensualidad",
+            tabla_afectada="Mensualidad",
+            registro_id=instance.id,
+            descripcion=f"Mensualidad #{instance.id} modificada. Nueva fecha de vencimiento: {instance.fecha_vencimiento}, nuevo estado: {instance.estado}."
+        )       
 
         return instance
     
-class AnularMensualidadSerializer(serializers.Serializer):
+class ComentarioAnulacionSerializer(serializers.Serializer):
     comentario = serializers.CharField(required=True, max_length=500)

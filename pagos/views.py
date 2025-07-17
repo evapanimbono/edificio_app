@@ -18,12 +18,11 @@ from .models import Pago,PagoEfectivo,PagoTransferencias,PagoMensualidad, PagoGa
 from .serializers_pagos import PagoSerializer,PagoEfectivoSerializer,PagoTransferenciaSerializer,PagoRegistroSerializer,DetallePagoSerializer
 from .filters import PagoFilter
 from .permisos import EsArrendadorYAdministraElPago, EsArrendatarioYEsDueñoDelPago, EsArrendadorYAdministraElRecibo, EsArrendatarioYEsDueñoDelRecibo
-from pagos.tareas import actualizar_estado_recibo_si_pagado
+from pagos.tareas import actualizar_estado_recibo_si_pagado,crear_recibo_para_mensualidad,crear_recibo_para_gasto_extra
 
 from .models_recibos import Recibo, ReciboMensualidad, ReciboGastoExtra
 from .serializers_recibos import (
     ReciboSerializer,
-    GenerarReciboSerializer,
 )
 
 from usuarios.models import Usuario
@@ -296,6 +295,10 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
                     mensualidad.estado = 'pagado'
                 mensualidad.save()
 
+                # Crear recibo para esta mensualidad si no existe
+                crear_recibo_para_mensualidad(mensualidad, creado_por=usuario)
+
+
             # Actualizar gastos
             for pago_g in pago.gastos_pagados.all():
                 gasto = pago_g.gasto_extra
@@ -304,6 +307,9 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
                 if gasto.saldo_pendiente == 0:
                     gasto.estado = 'pagado'
                 gasto.save()
+
+                # Crear recibo para este gasto extra si no existe
+                crear_recibo_para_gasto_extra(gasto, creado_por=usuario)
 
             # Revisar recibos relacionados
             for pago_m in pago.mensualidades_pagadas.all():
@@ -552,214 +558,34 @@ class DetallePagoPrevioAPIView(APIView):
 
 #========================================================================================================================    
 #Vistas recibos
-class RecibosDelUsuarioView(APIView): #Permite que el arrendatario vea sus recibos (pendientes, atrasados o pagados)
-    
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        usuario = request.user
-        estado = request.query_params.get('estado')
-
-        if usuario.tipo_usuario == 'arrendatario':
-            filtros = {'usuario': usuario}
-            if estado in ['pendiente', 'atrasado', 'pagado']:
-                filtros['estado'] = estado
-            recibos = Recibo.objects.filter(**filtros).order_by('-fecha_emision')
-
-        elif usuario.tipo_usuario == 'arrendador':
-            # Arrendador ve recibos asociados a edificios que administra
-            edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
-
-            # Recibos asociados a mensualidades o gastos extra de apartamentos en esos edificios
-            recibos = Recibo.objects.filter(
-                Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
-                Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids)
-            ).distinct()
-
-            if estado in ['pendiente', 'atrasado', 'pagado']:
-                recibos = recibos.filter(estado=estado)
-            recibos = recibos.order_by('-fecha_emision')
-
-        else:
-            return Response({"error": "No tienes permiso para esta acción."}, status=403)
-
-        data = ReciboSerializer(recibos, many=True).data
-        return Response(data)
-
-class PermisoArrendadorOSuperuser(IsAuthenticated):
-    def has_permission(self, request, view):
-        return bool(
-            request.user and
-            request.user.is_authenticated and
-            (request.user.is_superuser or request.user.tipo_usuario == 'arrendador')
-        )
-    
+# Vista para listar recibos (filtrables por estado, usuario, fechas)    
 class ListaRecibosAPIView(generics.ListAPIView):
-    permission_classes = [PermisoArrendadorOSuperuser]
+    permission_classes = [IsAuthenticated]
     serializer_class = ReciboSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['estado', 'usuario', 'fecha_emision', 'fecha_vencimiento']
-    ordering_fields = ['fecha_emision', 'fecha_vencimiento']
+    filterset_fields = ['estado', 'usuario', 'fecha_emision']
+    ordering_fields = ['fecha_emision']
 
     def get_queryset(self):
         usuario = self.request.user
 
-        if usuario.is_superuser:
+        if usuario.tipo_usuario == 'arrendatario':
+            # Solo recibos propios, sin filtro por usuario para evitar filtrado inapropiado
+            return Recibo.objects.filter(usuario=usuario).order_by('-created_at')
+
+        elif usuario.is_superuser:
+            # Superusuario ve todo
             return Recibo.objects.all()
 
-        if usuario.tipo_usuario == 'arrendador':
+        elif usuario.tipo_usuario == 'arrendador':
             edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
             return Recibo.objects.filter(
                 Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
                 Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids)
             ).distinct()
 
+        # Otros tipos no autorizados
         return Recibo.objects.none()
-
-class GenerarReciboAPIView(APIView): # Superuser genera recibos manuales o se generan automáticamente por mensualidades y gastos extra
-    
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    def post(self, request):
-        serializer = GenerarReciboSerializer(data=request.data)
-        if serializer.is_valid():
-            data = serializer.validated_data
-            usuario = Usuario.objects.get(id=data['usuario_id'])
-
-            # IDs ya asociados a recibos (no pagados aún)
-            mensualidades_con_recibo = ReciboMensualidad.objects.filter(
-            recibo__estado__in=['pendiente', 'atrasado']
-            ).values_list('mensualidad_id', flat=True)
-
-            gastos_con_recibo = ReciboGastoExtra.objects.filter(
-            recibo__estado__in=['pendiente', 'atrasado']
-            ).values_list('gasto_extra_id', flat=True)
-
-            # Solo tomar los que no estén en un recibo activo
-            mensualidades = Mensualidad.objects.filter(
-            id__in=data.get('mensualidades_id', []),
-            estado__in=['pendiente', 'atrasado'],
-            saldo_pendiente__gt=0
-            ).exclude(id__in=mensualidades_con_recibo)
-
-            gastos = GastoExtra.objects.filter(
-            id__in=data.get('gastos_extra_id', []),
-            estado__in=['pendiente', 'atrasado'],
-            saldo_pendiente__gt=0
-            ).exclude(id__in=gastos_con_recibo)
-
-            if not mensualidades and not gastos:
-                return Response({"error": "No hay deudas válidas para generar el recibo."}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Superusuario puede agrupar todo en un único recibo
-            if request.user.is_superuser:
-                total_usd = sum([m.monto_usd for m in mensualidades]) + sum([g.monto_usd for g in gastos])
-                tasa = TasaDia.objects.order_by('-fecha').first()
-                if not tasa:
-                    return Response({"error": "No hay tasa registrada."}, status=status.HTTP_400_BAD_REQUEST)
-
-                total_bs = total_usd * tasa.valor_usd_bs
-
-                recibo = Recibo.objects.create(
-                    usuario=usuario,
-                    total_usd=total_usd,
-                    total_bs=total_bs,
-                    observaciones=data.get('observaciones', ''),
-                    creado_por=request.user
-                )
-
-                for m in mensualidades:
-                    ReciboMensualidad.objects.create(recibo=recibo, mensualidad=m, monto_usd=m.monto_usd)
-
-                for g in gastos:
-                    ReciboGastoExtra.objects.create(recibo=recibo, gasto_extra=g, monto_usd=g.monto_usd)
-
-                return Response(ReciboSerializer(recibo).data, status=status.HTTP_201_CREATED)
-
-            # Usuarios normales: un recibo por cada ítem
-            recibos_creados = []
-
-            tasa = TasaDia.objects.order_by('-fecha').first()
-            if not tasa:
-                return Response({"error": "No hay tasa registrada."}, status=status.HTTP_400_BAD_REQUEST)
-
-            for m in mensualidades:
-                total_usd = m.monto_usd
-                total_bs = total_usd * tasa.valor_usd_bs
-                recibo = Recibo.objects.create(
-                    usuario=usuario,
-                    total_usd=total_usd,
-                    total_bs=total_bs,
-                    observaciones=data.get('observaciones', ''),
-                    creado_por=request.user
-                )
-                ReciboMensualidad.objects.create(recibo=recibo, mensualidad=m, monto_usd=total_usd)
-                recibos_creados.append(recibo)
-
-            for g in gastos:
-                total_usd = g.monto_usd
-                total_bs = total_usd * tasa.valor_usd_bs
-                recibo = Recibo.objects.create(
-                    usuario=usuario,
-                    total_usd=total_usd,
-                    total_bs=total_bs,
-                    observaciones=data.get('observaciones', ''),
-                    creado_por=request.user
-                )
-                ReciboGastoExtra.objects.create(recibo=recibo, gasto_extra=g, monto_usd=total_usd)
-                recibos_creados.append(recibo)
-
-            return Response(ReciboSerializer(recibos_creados, many=True).data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
- 
-#Lista de recibos seleccionables (pendientes o atrasados) para pagar
-class RecibosSeleccionablesAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        usuario = request.user
-
-        if usuario.tipo_usuario == 'arrendatario':
-            recibos = Recibo.objects.filter(
-                usuario=usuario,
-                estado__in=['pendiente', 'atrasado']
-            )
-
-        elif usuario.tipo_usuario == 'arrendador':
-            edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
-            recibos = Recibo.objects.filter(
-                Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
-                Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids),
-                estado__in=['pendiente', 'atrasado']
-            ).distinct()
-
-        else:
-            return Response({"error": "No tienes permiso para esta acción."}, status=403)
-
-        # Filtrar solo los que tienen saldo pendiente > 0
-        seleccionables = []
-        tasa = TasaDia.objects.order_by('-fecha').first()
-        for r in recibos:
-            saldo_usd = Decimal('0.00')
-            for rm in r.mensualidades.all():
-                saldo_usd += rm.mensualidad.saldo_pendiente
-            for rg in r.gastos.all():
-                saldo_usd += rg.gasto_extra.saldo_pendiente
-
-            if saldo_usd > 0:
-                estimado_bs = round(saldo_usd * tasa.valor_usd_bs, 2) if tasa else None
-                seleccionables.append({
-                    "id": r.id,
-                    "estado": r.estado,
-                    "fecha_emision": r.fecha_emision,
-                    "fecha_vencimiento": r.fecha_vencimiento,
-                    "total_usd": float(r.total_usd),
-                    "saldo_usd": float(saldo_usd),
-                    "monto_estimado_bs": float(estimado_bs) if estimado_bs is not None else None,
-                })
-
-        return Response(seleccionables)
 
 #Vista detalle de un recibo específico
 class ReciboDetalleAPIView(RetrieveAPIView):
