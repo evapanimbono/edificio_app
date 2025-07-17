@@ -16,6 +16,7 @@ class GastoExtra(models.Model):
         ('pendiente', 'Pendiente'),
         ('pagado', 'Pagado'),
         ('atrasado', 'Atrasado'),
+        ('anulado', 'Anulado'),
     ]
     apartamento = models.ForeignKey('edificios.Apartamento', models.DO_NOTHING)
     descripcion = models.TextField()
