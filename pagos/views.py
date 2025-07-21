@@ -2,12 +2,13 @@ from django.shortcuts import render,get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
+from django.db import transaction
 
 from rest_framework import generics,status,filters,permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.generics import GenericAPIView,RetrieveAPIView
 from rest_framework.exceptions import PermissionDenied
 
@@ -15,17 +16,16 @@ from datetime import datetime
 from decimal import Decimal,InvalidOperation
 
 from .models import Pago,PagoEfectivo,PagoTransferencias,PagoMensualidad, PagoGastoExtra
-from .serializers_pagos import PagoSerializer,PagoEfectivoSerializer,PagoTransferenciaSerializer,PagoRegistroSerializer,DetallePagoSerializer
+from .serializers_pagos import PagoSerializer,PagoRegistroSerializer,DetallePagoSerializer,AnularPagoSerializer
 from .filters import PagoFilter
-from .permisos import EsArrendadorYAdministraElPago, EsArrendatarioYEsDueñoDelPago, EsArrendadorYAdministraElRecibo, EsArrendatarioYEsDueñoDelRecibo
-from pagos.tareas import actualizar_estado_recibo_si_pagado,crear_recibo_para_mensualidad,crear_recibo_para_gasto_extra
+from .permisos import EsArrendadorYAdministraElPago, EsArrendadorYAdministraElRecibo, EsArrendatarioYEsDueñoDelRecibo
+from pagos.tareas import generar_recibo_para_pago
 
-from .models_recibos import Recibo, ReciboMensualidad, ReciboGastoExtra
+from .models_recibos import Recibo
 from .serializers_recibos import (
     ReciboSerializer,
 )
 
-from usuarios.models import Usuario
 from usuarios.permissions import EsArrendatario,EsArrendador
 
 from contratos.models import Contrato
@@ -39,9 +39,9 @@ from edificios.models import Apartamento
 
 from log.models import LogAccion
 
-#======================================================================================================================== 
-#Vistas pagos
-class ListaPagosAPIView(generics.ListAPIView): #Muestra los pagos asociados al arrendador (sus apartamentos) o arrendatario
+#====================================================== PAGOS ================================================================== 
+#Muestra los pagos asociados al arrendador (sus apartamentos)
+class ListaPagosAPIView(generics.ListAPIView):
     
     serializer_class = PagoSerializer
     filter_backends = [DjangoFilterBackend]
@@ -64,11 +64,15 @@ class ListaPagosAPIView(generics.ListAPIView): #Muestra los pagos asociados al a
 
         return Pago.objects.none()
 
-class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre un pago de un recibo(mensualidad o gasto extra)
+#Permite registrar un pago de mensualidades y/o gastos extra. El arrendatario lo deja en estado pendiente, el arrendador lo puede validar automáticamente.
+class RegistrarPagoView(GenericAPIView):
+    """Permite registrar un pago de mensualidades y/o gastos extra. El arrendatario lo deja en estado pendiente, el arrendador lo puede validar automáticamente."""
+
     
     permission_classes = [IsAuthenticated]
     serializer_class = PagoRegistroSerializer
 
+    @transaction.atomic
     def post(self, request):
 
         serializer = self.get_serializer(data=request.data)
@@ -104,7 +108,7 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
             if not tasa:
                 return Response({"error": "No hay una tasa registrada para calcular el monto en Bs."}, status=400)
 
-        monto_bs = monto * tasa.valor_usd_bs
+        monto_bs = round(monto * tasa.valor_usd_bs)
 
         # Crear el pago principal
         pago = Pago.objects.create(
@@ -129,6 +133,7 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
             descripcion=f"Tipo: {tipo_pago}, Monto: {monto}, Fecha: {fecha_pago}"
         )
 
+        mensualidades_pagadas = []
         # Procesar mensualidades
         for item in mensualidades_data:
             mensualidad = get_object_or_404(Mensualidad, id=item["id"], estado__in=["pendiente", "atrasado"])
@@ -150,6 +155,16 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
                 monto_pagado=monto_item
             )
 
+            # Si el que registra es arrendador, actualizar saldo y estado aquí
+            if tipo_usuario == 'arrendador':
+                mensualidad.saldo_pendiente -= monto_item
+                mensualidad.saldo_pendiente = max(Decimal('0.00'), mensualidad.saldo_pendiente)
+                if mensualidad.saldo_pendiente == 0:
+                    mensualidad.estado = 'pagado'
+                mensualidad.save()
+
+            mensualidades_pagadas.append((mensualidad, monto_item))
+
             # 💬 Agregar log del registro de pago de una mensualidad
             LogAccion.objects.create(
                 usuario=usuario,
@@ -161,6 +176,7 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
 
             monto_acumulado += monto_item
 
+        gastos_pagados = []
         # Procesar gastos extra
         for item in gastos_extra_data:
             gasto = get_object_or_404(GastoExtra, id=item["id"], estado__in=["pendiente", "atrasado"])
@@ -183,6 +199,16 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
                 gasto_extra=gasto,
                 monto_pagado=monto_item
             )
+
+            # Si el que registra es arrendador, actualizar saldo y estado aquí
+            if tipo_usuario == 'arrendador':
+                gasto.saldo_pendiente -= monto_item
+                gasto.saldo_pendiente = max(Decimal('0.00'), gasto.saldo_pendiente)
+                if gasto.saldo_pendiente == 0:
+                    gasto.estado = 'pagado'
+                gasto.save()
+
+            gastos_pagados.append((gasto, monto_item))
 
             # 💬 Agregar log del registro de pago de un gasto extra
             LogAccion.objects.create(
@@ -286,51 +312,19 @@ class RegistrarPagoView(GenericAPIView): #Permite que el arrendatario registre u
             )
 
         if tipo_usuario == 'arrendador':
-            # Actualizar mensualidades
-            for pago_m in pago.mensualidades_pagadas.all():
-                mensualidad = pago_m.mensualidad
-                mensualidad.saldo_pendiente -= pago_m.monto_pagado
-                mensualidad.saldo_pendiente = max(Decimal('0.00'), mensualidad.saldo_pendiente)
-                if mensualidad.saldo_pendiente == 0:
-                    mensualidad.estado = 'pagado'
-                mensualidad.save()
+            generar_recibo_para_pago(pago, request.user)
 
-                # Crear recibo para esta mensualidad si no existe
-                crear_recibo_para_mensualidad(mensualidad, creado_por=usuario)
-
-
-            # Actualizar gastos
-            for pago_g in pago.gastos_pagados.all():
-                gasto = pago_g.gasto_extra
-                gasto.saldo_pendiente -= pago_g.monto_pagado
-                gasto.saldo_pendiente = max(Decimal('0.00'), gasto.saldo_pendiente)
-                if gasto.saldo_pendiente == 0:
-                    gasto.estado = 'pagado'
-                gasto.save()
-
-                # Crear recibo para este gasto extra si no existe
-                crear_recibo_para_gasto_extra(gasto, creado_por=usuario)
-
-            # Revisar recibos relacionados
-            for pago_m in pago.mensualidades_pagadas.all():
-                recibos_m = ReciboMensualidad.objects.filter(mensualidad=pago_m.mensualidad)
-                for rm in recibos_m:
-                    actualizar_estado_recibo_si_pagado(rm.recibo, pago=pago)
-
-            for pago_g in pago.gastos_pagados.all():
-                recibos_g = ReciboGastoExtra.objects.filter(gasto_extra=pago_g.gasto_extra)
-                for rg in recibos_g:
-                    actualizar_estado_recibo_si_pagado(rg.recibo, pago=pago)
-    
         return Response({
             "mensaje": "Pago registrado correctamente",
             "pago_id": pago.id
         })
-     
-class ValidarPagoView(APIView): #Permite que el arrendador valide un pago registrado por un arrendatario
+
+#Permite que el arrendador valide un pago registrado por un arrendatario     
+class ValidarPagoView(APIView): 
     
     permission_classes = [IsAuthenticated, EsArrendador, EsArrendadorYAdministraElPago]
 
+    @transaction.atomic
     def post(self, request, pago_id):
         try:
             pago = get_object_or_404(Pago, id=pago_id, estado_validacion='pendiente')
@@ -338,7 +332,7 @@ class ValidarPagoView(APIView): #Permite que el arrendador valide un pago regist
 
         except Pago.DoesNotExist:
             return Response({'error': 'Pago no encontrado o ya validado'}, status=status.HTTP_404_NOT_FOUND)
-        
+            
         # Verifica que el usuario sea arrendador ahora se hace desde permisos
         #if request.user.tipo != 'arrendador':
         #    return Response({'error': 'No tiene permisos para validar pagos'}, status=status.HTTP_403_FORBIDDEN)
@@ -348,12 +342,13 @@ class ValidarPagoView(APIView): #Permite que el arrendador valide un pago regist
 
         if accion not in ['validar', 'rechazar']:
             return Response({'error': 'Acción inválida. Usa "validar" o "rechazar".'}, status=400)
-        
+            
         if accion == "validar":
             # Validar el pago
             pago.estado_validacion = 'validado'
             pago.validado_por = request.user
             pago.fecha_validacion = timezone.now()
+            pago.observaciones = ''
             pago.save()
 
             # 🔐 Log de validación
@@ -383,26 +378,17 @@ class ValidarPagoView(APIView): #Permite que el arrendador valide un pago regist
                     gasto.estado = 'pagado'
                 gasto.save()
 
-            # Revisar recibos asociados a mensualidades
-            for pago_m in pago.mensualidades_pagadas.all():
-                recibos_m = ReciboMensualidad.objects.filter(mensualidad=pago_m.mensualidad)
-                for rm in recibos_m:
-                    actualizar_estado_recibo_si_pagado(rm.recibo, pago=pago)
+            # Crear recibo general
+            generar_recibo_para_pago(pago, request.user)
 
-            # Revisar recibos asociados a gastos
-            for pago_g in pago.gastos_pagados.all():
-                recibos_g = ReciboGastoExtra.objects.filter(gasto_extra=pago_g.gasto_extra)
-                for rg in recibos_g:
-                    actualizar_estado_recibo_si_pagado(rg.recibo, pago=pago)
-
-            return Response({'mensaje': 'Pago validado correctamente'}, status=status.HTTP_200_OK)
-        
+            return Response({'mensaje': 'Pago validado correctamente y recibo generado'}, status=status.HTTP_200_OK)
+            
         elif accion == "rechazar":
             # ❌ Rechazar pago
             pago.estado_validacion = 'rechazado'
             pago.validado_por = request.user
             pago.fecha_validacion = timezone.now()
-            pago.observaciones = observacion  # (agrega este campo al modelo si no existe)
+            pago.observaciones = observacion 
             pago.save()
 
             # 📝 Log de rechazo
@@ -415,8 +401,9 @@ class ValidarPagoView(APIView): #Permite que el arrendador valide un pago regist
             )
 
             return Response({'mensaje': 'Pago rechazado correctamente'}, status=200)
-    
-class HistorialPagosView(APIView): #Permite que el arrendatario vea su historial de pagos (solo los ya validados)
+
+#Permite que el arrendatario vea su historial de pagos (solo los ya validados)    
+class HistorialPagosView(APIView): 
     
     permission_classes = [IsAuthenticated, EsArrendatario]
 
@@ -455,7 +442,8 @@ class HistorialPagosView(APIView): #Permite que el arrendatario vea su historial
 
         return Response(data)   
     
-class DetallePagoView(RetrieveAPIView): #Permite que el arrendador vea los detalles de un pago específico
+#Permite que el arrendador vea los detalles de un pago específico (pendiente, validado o rechazado)
+class DetallePagoView(RetrieveAPIView): 
     permission_classes = [IsAuthenticated]
     queryset = Pago.objects.all()
     serializer_class = DetallePagoSerializer
@@ -491,61 +479,94 @@ class DetallePagoPrevioAPIView(APIView):
 
     def post(self, request):
         usuario = request.user
-        recibo_ids = request.data.get('recibos_id', [])
+        mensualidades_ids = request.data.get('mensualidades', [])
+        gastos_extra_ids = request.data.get('gastos_extra', [])
+        tipo_pago = request.data.get('tipo_pago')
+        fecha_transferencia_str = request.data.get('fecha_transferencia', None)
 
-        if not isinstance(recibo_ids, list) or not recibo_ids:
-            return Response({"error": "Debes enviar una lista de IDs de recibos."}, status=400)
+        if not mensualidades_ids and not gastos_extra_ids:
+            return Response({"error": "Debes enviar al menos una mensualidad o gasto extra."}, status=400)
+        
+        if tipo_pago not in ['efectivo', 'transferencia', 'mixto']:
+            return Response({"error": "Tipo de pago inválido."}, status=400)
 
-        recibos = Recibo.objects.filter(id__in=recibo_ids)
-
-        # Seguridad: validar acceso a esos recibos
-        if usuario.tipo_usuario == 'arrendatario':
-            recibos = recibos.filter(usuario=usuario)
-        elif usuario.tipo_usuario == 'arrendador':
-            edificios_ids = usuario.edificios_asignados.values_list('edificio_id', flat=True)
-            recibos = recibos.filter(
-                Q(mensualidades__mensualidad__contrato__apartamento__edificio_id__in=edificios_ids) |
-                Q(gastos__gasto_extra__apartamento__edificio_id__in=edificios_ids)
-            ).distinct()
+        # Validar formato y existencia de fecha transferencia si aplica
+        if tipo_pago in ['transferencia', 'mixto']:
+            if not fecha_transferencia_str:
+                return Response({"error": "Debes enviar la fecha de transferencia para este tipo de pago."}, status=400)
+            try:
+                fecha_transferencia = datetime.strptime(fecha_transferencia_str, "%Y-%m-%d").date()
+            except ValueError:
+                return Response({"error": "Formato inválido para fecha_transferencia. Usa AAAA-MM-DD."}, status=400)
+            tasa = TasaDia.objects.filter(fecha=fecha_transferencia).first()
+            if not tasa:
+                return Response({"error": f"No hay tasa registrada para la fecha {fecha_transferencia}."}, status=400)
         else:
-            return Response({"error": "No tienes permiso para esta acción."}, status=403)
+            tasa = TasaDia.objects.order_by('-fecha').first()
+            if not tasa:
+                return Response({"error": "No hay tasa registrada."}, status=400)
+
+        # Validar que mensualidades_ids y gastos_extra_ids sean listas de dicts con 'id'
+        try:
+            mensualidades_id_list = [m['id'] for m in mensualidades_ids if 'id' in m]
+            gastos_extra_id_list = [g['id'] for g in gastos_extra_ids if 'id' in g]
+        except Exception:
+            return Response({"error": "Formato inválido para mensualidades o gastos extra."}, status=400)
+
+        # Obtener mensualidades y validar acceso
+        mensualidades = Mensualidad.objects.filter(
+            id__in=mensualidades_id_list,
+            estado__in=['pendiente', 'atrasado']
+        ).select_related('contrato', 'contrato__arrendatario')
+
+        for m in mensualidades:
+            if usuario.tipo_usuario == 'arrendatario' and m.contrato.arrendatario_id != usuario.id:
+                return Response({"error": f"No tienes permiso para la mensualidad {m.id}."}, status=403)
+
+        # Obtener gastos extra y validar acceso
+        gastos = GastoExtra.objects.filter(
+            id__in=gastos_extra_id_list,
+            estado__in=['pendiente', 'atrasado']
+        ).select_related('apartamento')
+
+        for g in gastos:
+            if usuario.tipo_usuario == 'arrendatario':
+                contrato = Contrato.objects.filter(apartamento=g.apartamento, arrendatario=usuario, activo=True).first()
+                if not contrato:
+                    return Response({"error": f"No tienes permiso para el gasto extra {g.id}."}, status=403)
 
         total_usd = Decimal('0.00')
         detalle = {"mensualidades": [], "gastos_extra": []}
 
-        for r in recibos:
-            for rm in r.mensualidades.all():
-                mensualidad = rm.mensualidad
-                if mensualidad.estado in ['pendiente', 'atrasado'] and mensualidad.saldo_pendiente > 0:
-                    monto = mensualidad.saldo_pendiente
-                    total_usd += monto
-                    detalle["mensualidades"].append({
-                        "id": mensualidad.id,
-                        "recibo_id": r.id,
-                        "monto_usd": float(monto),
-                        "fecha_vencimiento": mensualidad.fecha_vencimiento,
-                        "estado": mensualidad.estado
-                    })
+        for m in mensualidades:
+            if m.saldo_pendiente > 0:
+                monto_usd = m.saldo_pendiente
+                monto_bs = monto_usd * tasa.valor_usd_bs
+                total_usd += monto_usd
+                detalle["mensualidades"].append({
+                    "id": m.id,
+                    "monto_usd": float(monto_usd),
+                    "monto_bs": float(round(monto_bs, 2)),
+                    "fecha_vencimiento": m.fecha_vencimiento,
+                    "estado": m.estado
+                })
 
-            for rg in r.gastos.all():
-                gasto = rg.gasto_extra
-                if gasto.estado in ['pendiente', 'atrasado'] and gasto.saldo_pendiente > 0:
-                    monto = gasto.saldo_pendiente
-                    total_usd += monto
-                    detalle["gastos_extra"].append({
-                        "id": gasto.id,
-                        "recibo_id": r.id,
-                        "monto_usd": float(monto),
-                        "descripcion": gasto.descripcion,
-                        "estado": gasto.estado
-                    })
+        for g in gastos:
+            if g.saldo_pendiente > 0:
+                monto_usd = g.saldo_pendiente
+                monto_bs = monto_usd * tasa.valor_usd_bs
+                total_usd += monto_usd
+                detalle["gastos_extra"].append({
+                    "id": g.id,
+                    "monto_usd": float(monto_usd),
+                    "monto_bs": float(round(monto_bs, 2)),
+                    "descripcion": g.descripcion,
+                    "fecha_vencimiento": g.fecha_vencimiento,
+                    "estado": g.estado
+                })
 
         if total_usd == 0:
-            return Response({"error": "No hay deuda activa en los recibos seleccionados."}, status=400)
-
-        tasa = TasaDia.objects.order_by('-fecha').first()
-        if not tasa:
-            return Response({"error": "No hay tasa registrada."}, status=400)
+            return Response({"error": "No hay deuda activa en las mensualidades o gastos seleccionados."}, status=400)
 
         total_bs = total_usd * tasa.valor_usd_bs
 
@@ -555,6 +576,73 @@ class DetallePagoPrevioAPIView(APIView):
             "total_bs_estimado": float(round(total_bs, 2)),
             "detalle": detalle
         })
+
+#Vista para anular un pago (arrendador o superusuario)
+class AnularPagoView(APIView):
+    permission_classes = [IsAuthenticated, EsArrendadorYAdministraElPago]
+
+    @transaction.atomic
+    def post(self, request, pago_id):
+        pago = get_object_or_404(Pago, id=pago_id)
+
+        # Chequea permiso
+        self.check_object_permissions(request, pago)
+
+        # Validar que el pago esté validado para poder anularlo
+        if pago.estado_validacion != 'validado':
+            return Response(
+                {"error": "Solo se pueden anular pagos que estén en estado validado."}, 
+                status=400
+            )
+
+        hoy = timezone.now().date()
+
+        # Anulación lógica:
+        # 1. Volver a aumentar saldo pendiente en mensualidades y gastos según monto_pagado en este pago
+        for pago_mensualidad in pago.mensualidades_pagadas.all():
+            mensualidad = pago_mensualidad.mensualidad
+            monto = pago_mensualidad.monto_pagado
+
+            mensualidad.saldo_pendiente += monto
+            if mensualidad.saldo_pendiente > 0:
+                if mensualidad.fecha_vencimiento < hoy:
+                    mensualidad.estado = 'atrasado'
+                else:
+                    mensualidad.estado = 'pendiente'
+            mensualidad.save()
+
+        for pago_gasto in pago.gastos_pagados.all():
+            gasto = pago_gasto.gasto_extra
+            monto = pago_gasto.monto_pagado
+
+            gasto.saldo_pendiente += monto
+            if gasto.saldo_pendiente > 0:
+                if gasto.fecha_vencimiento < hoy:
+                    gasto.estado = 'atrasado'
+                else:
+                    gasto.estado = 'pendiente'
+            gasto.save()
+
+        # Cambiar estado del pago a 'anulado'
+        pago.estado_validacion = 'anulado'
+        pago.save()
+
+        # Anular recibos asociados a este pago
+        recibos_asociados = Recibo.objects.filter(pago=pago, estado='pagado')
+        for recibo in recibos_asociados:
+            recibo.estado = 'anulado'
+            recibo.save()
+
+        # Log
+        LogAccion.objects.create(
+            usuario=request.user,
+            accion='anuló un pago',
+            tabla_afectada='pagos',
+            registro_id=pago.id,
+            descripcion=f'Pago #{pago.id} anulado por {request.user.username} el {hoy}'
+        )
+
+        return Response({"mensaje": "Pago anulado correctamente"}, status=status.HTTP_200_OK)
 
 #========================================================================================================================    
 #Vistas recibos

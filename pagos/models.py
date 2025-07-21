@@ -20,20 +20,22 @@ class Pago(models.Model):
         ('pendiente', 'Pendiente'),
         ('validado', 'Validado'),
         ('rechazado', 'Rechazado'),
+        ('anulado', 'Anulado'),
     ]
-    usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True, blank=True, related_name='pagos_realizados')
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, null=True, blank=True, related_name='pagos_realizados')
     tipo_pago = models.CharField(max_length=20, choices=TIPO_CHOICES)
     fecha_pago = models.DateField()
     monto_total = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_bs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     tasa_usd = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     tasa_dia = models.ForeignKey(TasaDia,on_delete=models.PROTECT,blank=True,null=True,related_name='pagos',help_text="Tasa del día usada para calcular este pago")
-    monto_bs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     estado_validacion = models.CharField(max_length=20, choices=ESTADO_CHOICES)
+    validado_por = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, db_column='validado_por', blank=True, null=True, related_name='pagos_validados')
+    fecha_validacion = models.DateTimeField(blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    validado_por = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, db_column='validado_por', blank=True, null=True, related_name='pagos_validados')
-    fecha_validacion = models.DateTimeField(blank=True, null=True)
+    
 
     def __str__(self):
         return f"Pago #{self.id} - {self.tipo_pago} - {self.estado_validacion}"

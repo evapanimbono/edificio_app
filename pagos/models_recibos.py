@@ -13,6 +13,7 @@ class Recibo(models.Model):
     total_bs = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     observaciones = models.TextField(blank=True, null=True)
     creado_por = models.ForeignKey('usuarios.Usuario', related_name='recibos_creados', on_delete=models.PROTECT)
+    pago = models.ForeignKey('pagos.Pago', null=True, blank=True, on_delete=models.SET_NULL, related_name='recibos')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

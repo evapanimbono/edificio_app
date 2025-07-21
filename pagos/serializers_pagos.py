@@ -164,8 +164,11 @@ class DetallePagoSerializer(serializers.ModelSerializer):
                 "cuenta_destino": t.cuenta_destino,
                 "referencia": t.referencia,
                 "monto_bs": t.monto_bs,
-                "comprobante_img": t.comprobante_img
+                "comprobante_img": t.comprobante_img,
+                "fecha_transferencia": t.fecha_transferencia
             }
             for t in obj.pagotransferencias_set.all()
         ]
 
+class AnularPagoSerializer(serializers.Serializer):
+    motivo = serializers.CharField(max_length=255, required=False, allow_blank=True)

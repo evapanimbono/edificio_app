@@ -53,59 +53,104 @@ def actualizar_estados_vencidos(): #Actualiza los estados de mensualidades y gas
             descripcion=f"Se marcó como atrasado el gasto extra con vencimiento {g.fecha_vencimiento}."
         )
 
-def crear_recibo_para_mensualidad(mensualidad, creado_por): #Crea un recibo para una mensualidad nueva (depende de contratos.tareas.crear_mensualidad)
+def generar_recibo_para_pago(pago, usuario):
     """
-    Crea un recibo automático para una mensualidad nueva.
+    Crea un único recibo para un pago validado, incluyendo todas las mensualidades
+    y gastos extra pagados, y sus asociaciones correspondientes.
+    """
+
+    if not pago.validado_por:
+        raise ValueError("No se puede generar un recibo para un pago no validado.")
+
+    recibo = Recibo.objects.create(
+        usuario=pago.usuario,  # El arrendatario dueño del pago
+        fecha_emision=pago.fecha_pago,
+        total_usd=pago.monto_total,
+        total_bs=pago.monto_bs,
+        estado='pagado',
+        observaciones=f"Recibo generado por el pago #{pago.id}.",
+        creado_por=usuario,
+        pago=pago
+    )
+
+    LogAccion.objects.create(
+        usuario=usuario,
+        accion="creó un recibo",
+        tabla_afectada="recibos",
+        registro_id=recibo.id,
+        descripcion=f"Recibo #{recibo.id} creado para pago #{pago.id}."
+    )
+
+    #Asociar mensualidades al recibo
+    for pm in pago.mensualidades_pagadas.all(): # asegúrate de tener esta lista antes
+        ReciboMensualidad.objects.create(
+            recibo=recibo,
+            mensualidad=pm.mensualidad,
+            monto_usd=pm.monto_pagado
+        )
+
+        LogAccion.objects.create(
+            usuario=usuario,
+            accion="asoció mensualidad a recibo",
+            tabla_afectada="ReciboMensualidad",
+            registro_id=pm.mensualidad.id,
+            descripcion=f"Mensualidad #{pm.mensualidad.id} asociada al recibo #{recibo.id}"
+        )
+
+    # Asociar gastos extra al mismo recibo
+    for pg in pago.gastos_pagados.all():  # asegúrate de tener esta lista antes
+        ReciboGastoExtra.objects.create(
+            recibo=recibo,
+            gasto_extra=pg.gasto,
+            monto_usd=pg.monto_pagado
+        )
+
+        LogAccion.objects.create(
+            usuario=usuario,
+            accion="asoció gasto extra a recibo",
+            tabla_afectada="ReciboGastoExtra",
+            registro_id=pg.gasto.id,
+            descripcion=f"Gasto extra #{pg.gasto.id} asociado al recibo #{recibo.id}"
+        )
+
+#====================================================================================================================================================================
+#YA NO SE USAN PORQUE EL RECIBO SE CREA EN LAS VISTAS REGISTRARPAGO (PARA ARRENDADOR) Y VALIDARPAGO (PARA ARRENDATARIO)
+def crear_recibo_para_mensualidad(mensualidad, pago, creado_por): #Crea un recibo para una mensualidad nueva (depende de contratos.tareas.crear_mensualidad)
+    """
+    Crea un recibo automático para un pago de mensualidad.
 
     Args:
-        mensualidad (Mensualidad): Instancia de la mensualidad.
-        creado_por (Usuario or None): Usuario que dispara la acción (puede ser None si es automático).
+        mensualidad (Mensualidad): Instancia de la mensualidad pagada.
+        pago (Pago): Instancia del pago validado.
+        creado_por (Usuario): Usuario que registra o valida el pago.
 
     Returns:
-        Recibo or None: El recibo creado, o None si ya existía uno pendiente/atrasado.
+        Recibo: El recibo creado.
     """
+
     if not mensualidad:
         raise ValueError("La mensualidad no puede ser None.")
 
-    # Evitar duplicados si ya hay un recibo activo para esta mensualidad
-    if ReciboMensualidad.objects.filter(
-        mensualidad=mensualidad,
-        recibo__estado__in=['pendiente', 'atrasado']
-    ).exists():
-        print(f"⚠️ Ya existe un recibo pendiente/atrasado para mensualidad {mensualidad.id}")
-        return None
-
-    # Buscar la tasa más reciente
-    tasa = TasaDia.objects.order_by('-fecha').first()
-    if not tasa:
-        raise ValueError("❌ No hay tasa registrada para generar el recibo.")
-
-    total_usd = mensualidad.monto_usd
-    total_bs = None
+    if not pago:
+        raise ValueError("El pago no puede ser None.")
 
     if not creado_por:
-        try:
-            creado_por = Usuario.objects.get(username='sistema')
-        except Usuario.DoesNotExist:
-            print("❌ Usuario 'sistema' no encontrado. No se puede crear el recibo.")
-            return
-
-    estado = 'atrasado' if mensualidad.fecha_vencimiento < timezone.now().date() else 'pendiente'
+        raise ValueError("El usuario que crea el recibo no puede ser None.")
 
     recibo = Recibo.objects.create(
         usuario=mensualidad.contrato.arrendatario,
-        fecha_vencimiento=mensualidad.fecha_vencimiento,
-        total_usd=total_usd,
-        total_bs=None,
-        estado=estado,
-        observaciones="Recibo generado automáticamente para mensualidad.",
+        fecha_emision=pago.fecha_pago,
+        total_usd=pago.monto_total,
+        total_bs=pago.monto_bs,
+        estado='pagado',
+        observaciones=f"Recibo generado por pago de mensualidad #{mensualidad.id}",
         creado_por=creado_por
     )
 
     ReciboMensualidad.objects.create(
         recibo=recibo,
         mensualidad=mensualidad,
-        monto_usd=total_usd
+        monto_usd=pago.monto_total,
     )
 
     # 📝 Log de creación de recibo por mensualidad
@@ -115,57 +160,50 @@ def crear_recibo_para_mensualidad(mensualidad, creado_por): #Crea un recibo para
         tabla_afectada="Recibo",
         registro_id=recibo.id,
         descripcion=(
-            f"Recibo #{recibo.id} generado automáticamente para mensualidad #{mensualidad.id}. "
-            f"Vencimiento: {recibo.fecha_vencimiento}, Monto: ${total_usd}."
+            f"Recibo #{recibo.id} generado tras pago de mensualidad #{mensualidad.id}. "
+            f"Monto: ${pago.monto_total} / Bs {pago.monto_bs}."
         )
     )
 
     print(f"🧾 Recibo #{recibo.id} generado para mensualidad {mensualidad.id}")
     return recibo
 
-def crear_recibo_para_gasto_extra(gasto, creado_por): #Crea un recibo para un gasto extra manual
+def crear_recibo_para_gasto_extra(gasto,pago, creado_por): #Crea un recibo para un gasto extra manual
     """
-    Crea un recibo automáticamente para un gasto extra manual.
+    Crea un recibo automático para un pago de gasto extra.
+
+    Args:
+        gasto_extra (GastoExtra): Instancia del gasto extra pagado.
+        pago (Pago): Objeto de pago asociado.
+        creado_por (Usuario): Usuario que registra o valida el pago.
+
+    Returns:
+        Recibo: El recibo creado.
     """
-    if not gasto or not gasto.apartamento:
-        return None
 
-    # Evitar duplicados
-    ya_existe = ReciboGastoExtra.objects.filter(
-        gasto_extra=gasto,
-        recibo__estado__in=['pendiente', 'atrasado']
-    ).exists()
-    if ya_existe:
-        return None
+    if not gasto:
+        raise ValueError("El gasto extra no puede ser None.")
 
-    tasa = TasaDia.objects.order_by('-fecha').first()
-    if not tasa:
-        raise ValueError("No hay tasa registrada para generar el recibo")
-
-    total_usd = gasto.monto_usd
-    total_bs = None
-
-    # Buscar contrato activo para saber a qué usuario se le asigna
-    contrato = gasto.apartamento.contratos.filter(activo=True).first()
-    if not contrato:
-        raise ValueError("No hay contrato activo para el apartamento asociado al gasto")
+    if not pago:
+        raise ValueError("El pago no puede ser None.")
 
     if not creado_por:
-        creado_por = Usuario.objects.filter(username='sistema').first()
+        raise ValueError("El usuario que crea el recibo no puede ser None.")
 
     recibo = Recibo.objects.create(
-        usuario=contrato.arrendatario,
-        fecha_vencimiento=gasto.fecha_vencimiento,
-        total_usd=total_usd,
-        total_bs=None,
-        observaciones="Recibo generado automáticamente para gasto extra.",
+        usuario=gasto.arrendatario,
+        fecha_emision=pago.fecha_pago,
+        total_usd=pago.monto_total,
+        total_bs=pago.monto_bs,
+        estado='pagado',
+        observaciones=f"Recibo generado por pago de gasto extra #{gasto.id}",
         creado_por=creado_por
     )
 
     ReciboGastoExtra.objects.create(
         recibo=recibo,
         gasto_extra=gasto,
-        monto_usd=total_usd
+        monto_usd=pago.monto_total
     )
 
     # 📝 Log de creación de recibo por gasto extra
@@ -175,8 +213,8 @@ def crear_recibo_para_gasto_extra(gasto, creado_por): #Crea un recibo para un ga
         tabla_afectada="Recibo",
         registro_id=recibo.id,
         descripcion=(
-            f"Recibo #{recibo.id} generado automáticamente para mensualidad #{gasto.id}. "
-            f"Vencimiento: {recibo.fecha_vencimiento}, Monto: ${total_usd}."
+            f"Recibo #{recibo.id} generado tras pago de gasto extra #{gasto.id}. "
+            f"Monto: ${pago.monto_total} / Bs {pago.monto_bs}."
         )
     )
 
@@ -246,3 +284,5 @@ def actualizar_estado_recibo_si_pagado(recibo, pago=None): #Actualiza el estado 
         )
 
         print(f"✅ Recibo #{recibo.id} marcado como pagado.")
+#====================================================================================================================================================================
+
