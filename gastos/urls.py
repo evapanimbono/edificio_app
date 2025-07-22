@@ -4,7 +4,8 @@ from .views import (
     CrearGastoExtraAPIView,
     DetalleGastoExtraAPIView,
     ActualizarGastoExtraAPIView,
-    EliminarGastoExtraAPIView
+    EliminarGastoExtraAPIView,
+    AnularGastoExtraAPIView
 )
 
 urlpatterns = [
@@ -12,5 +13,6 @@ urlpatterns = [
     path('crear/', CrearGastoExtraAPIView.as_view(), name='crear-gasto-extra'), # Crear un gasto extra manual (solo arrendador o superusuario)
     path('detalle/<int:pk>/', DetalleGastoExtraAPIView.as_view(), name='detalle-gasto-extra'), # Detalle de un gasto extra (Todos los usuarios)
     path('editar/<int:pk>/', ActualizarGastoExtraAPIView.as_view(), name='editar-gasto-extra'), # Actualizar un gasto extra (solo arrendador o superusuario)
-    path('eliminar/<int:pk>/', EliminarGastoExtraAPIView.as_view(), name='eliminar-gasto-extra'), # Eliminar un gasto extra (solo arrendador o superusuario)
+    path('eliminar/<int:pk>/', EliminarGastoExtraAPIView.as_view(), name='eliminar-gasto-extra'), # Eliminar un gasto extra que no haya tenido pago(solo arrendador o superusuario)
+    path('anular/<int:pk>/', AnularGastoExtraAPIView.as_view(), name='anular-gasto-extra'), # Anular un gasto extra que haya tenido pago (solo arrendador o superusuario)
 ]

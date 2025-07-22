@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 
+from .models import Contrato
 from .models_mensualidades import Mensualidad
 from log.models import LogAccion
 
@@ -9,14 +10,21 @@ from pagos.tareas import crear_recibo_para_mensualidad
 class MensualidadSerializer(serializers.ModelSerializer):
     monto_bs_actual = serializers.SerializerMethodField()
     comentario_anulacion = serializers.CharField(read_only=True)
+    apartamento_numero = serializers.SerializerMethodField()
 
     class Meta:
         model = Mensualidad
         fields = [
-            'id', 'contrato', 'fecha_generacion', 'fecha_vencimiento',
+            'id','apartamento_numero','fecha_generacion', 'fecha_vencimiento',
             'monto_usd', 'saldo_pendiente', 'estado',
             'monto_bs_actual', 'comentario_anulacion',
         ]
+
+    def get_apartamento_numero(self, obj):
+        # Asegúrate que contrato y apartamento existen antes de acceder
+        if obj.contrato and obj.contrato.apartamento:
+            return obj.contrato.apartamento.numero_apartamento
+        return None
 
     def get_monto_bs_actual(self, obj):
         return obj.monto_bs_actual  # Propiedad del modelo
@@ -24,10 +32,9 @@ class MensualidadSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         rep = super().to_representation(instance)
 
-        # Eliminar campos que no aplican
-        if instance.estado != 'pagado':
-            rep.pop('monto_bs_pagado', None)
-            rep.pop('tasa_usada', None)
+        # Ocultar monto_bs_actual si la mensualidad está pagada o anulada
+        if instance.estado in ['pagado', 'anulado']:
+            rep.pop('monto_bs_actual', None)
 
         if instance.estado != 'anulado':
             rep.pop('comentario_anulacion', None)
@@ -36,33 +43,52 @@ class MensualidadSerializer(serializers.ModelSerializer):
 
 class MensualidadParaPagoSerializer(serializers.ModelSerializer):
     monto_bs_actual = serializers.SerializerMethodField()
-    contrato_id = serializers.IntegerField(source='contrato.id', read_only=True)
+    apartamento_numero = serializers.SerializerMethodField()
 
     class Meta:
         model = Mensualidad
-        fields = ['id', 'contrato_id', 'fecha_vencimiento', 'monto_usd', 'monto_bs_actual', 'estado']
+        fields = ['id', 'apartamento_numero', 'fecha_vencimiento', 'monto_usd', 'monto_bs_actual', 'estado']
 
     def get_monto_bs_actual(self, obj):
         return obj.monto_bs_actual
+    
+    def get_apartamento_numero(self, obj):
+        # Accedemos al número del apartamento a través del contrato relacionado
+        return obj.contrato.apartamento.numero_apartamento if obj.contrato and obj.contrato.apartamento else None
 
 class MensualidadCrearSerializer(serializers.ModelSerializer):
+    numero_apartamento = serializers.IntegerField(write_only=True)
+
     class Meta:
         model = Mensualidad
-        fields = ['contrato', 'fecha_vencimiento', 'monto_usd']
+        fields = ['numero_apartamento', 'fecha_vencimiento', 'monto_usd']
 
     def validate(self, data):
-        contrato = data.get('contrato')
-        if not contrato.activo:
-            raise serializers.ValidationError("El contrato debe estar activo.")
-        
-        if not data.get("fecha_vencimiento"):
+        numero_apto = data.get('numero_apartamento')
+        fecha_vencimiento = data.get('fecha_vencimiento')
+
+        # Busca el contrato activo para el apartamento
+        contratos = Contrato.objects.filter(
+            apartamento__numero_apartamento=numero_apto,
+            activo=True
+        )
+
+        if not contratos.exists():
+            raise serializers.ValidationError(f"No existe contrato activo para el apartamento #{numero_apto}")
+
+        contrato = contratos.first()
+
+        data['contrato'] = contrato
+
+        if not fecha_vencimiento:
             raise serializers.ValidationError("La fecha de vencimiento es obligatoria.")
-        
+
         return data
 
     def create(self, validated_data):
+        contrato = validated_data.pop('contrato')
         mensualidad = Mensualidad.objects.create(
-            contrato=validated_data['contrato'],
+            contrato=contrato,
             fecha_generacion=timezone.now().date(),
             fecha_vencimiento=validated_data['fecha_vencimiento'],
             monto_usd=validated_data['monto_usd'],

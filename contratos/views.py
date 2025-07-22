@@ -168,6 +168,12 @@ class ActualizarMensualidadAPIView(generics.UpdateAPIView):
     serializer_class = MensualidadEditarSerializer
     permission_classes = [IsAuthenticated, PuedeModificarOMostrarMensualidad]
     
+    def get_object(self):
+        obj = super().get_object()
+        # Forzar chequeo explícito del permiso de objeto
+        self.check_object_permissions(self.request, obj)
+        return obj
+
     def perform_update(self, serializer):
         mensualidad = serializer.save()
         LogAccion.objects.create(

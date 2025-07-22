@@ -7,7 +7,7 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from tasas.models import TasaDia
 
@@ -35,12 +35,19 @@ class Mensualidad(models.Model):
 
     @property
     def monto_bs_actual(self):
-        if self.estado == 'pagado' and self.monto_bs_pagado is not None:
-            return self.monto_bs_pagado
-        tasa = TasaDia.objects.filter(activa=True).order_by('-fecha').first()
-        if tasa:
-            return round(Decimal(self.monto_usd) * tasa.valor, 2)
-        return None  # o 0 si prefieres
+        # Si la mensualidad está pagada, devolver 0 o None porque no hay saldo
+        if self.estado == 'pagado' or self.estado == 'anulado' :
+            return Decimal('0.00')
+    
+        # Obtener la tasa del día más reciente (sin filtro de 'activa' porque no existe)
+        tasa = TasaDia.objects.order_by('-fecha').first()
+        if not tasa:
+            # Si no hay tasa registrada, devolver None o 0, según convenga
+            return None
+        
+        # Calcular monto en bolívares con la tasa actual
+        monto_bs = Decimal(self.monto_usd) * tasa.valor_usd_bs
+        return monto_bs.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     def __str__(self):
         return f"{self.contrato} - {self.fecha_vencimiento} - {self.estado}"

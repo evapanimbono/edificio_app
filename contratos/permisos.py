@@ -26,7 +26,12 @@ class PuedeModificarOMostrarMensualidad(permissions.BasePermission):
             return obj.contrato.apartamento.edificio_id in edificios_ids
 
         if user.tipo_usuario == 'arrendatario':
-            return obj.contrato.arrendatario_id == user.id
+            if request.method in permissions.SAFE_METHODS:
+                # solo puede ver (GET, HEAD, OPTIONS)
+                return obj.contrato.arrendatario_id == user.id
+            else:
+                # no puede modificar
+                return False
 
         return False
 

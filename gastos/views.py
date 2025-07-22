@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied,ValidationError
 from rest_framework import serializers
 
 from .models import GastoExtra
-from .serializers import GastoExtraSerializer,GastoExtraCreateSerializer,GastoExtraUpdateSerializer
+from .serializers import GastoExtraSerializer,GastoExtraCreateSerializer,GastoExtraUpdateSerializer,GastoExtraDetailSerializer 
 from .filters import GastoExtraFilter
 
 from contratos.models import Contrato
@@ -50,10 +50,13 @@ class ListaGastosExtraAPIView(generics.ListAPIView):
 
             return GastoExtra.objects.filter(apartamento_id__in=apartamentos_ids)
 
-        # ✅ Si es arrendador o superusuario
-        elif user.tipo_usuario == 'arrendador' or user.is_superuser:
+        # ✅ Si es arrendador
+        elif user.tipo_usuario == 'arrendador':
             edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
             return GastoExtra.objects.filter(apartamento__edificio_id__in=edificios_ids)
+        # ✅ Si es superusuario
+        elif user.is_superuser:
+            return GastoExtra.objects.all()
 
         return GastoExtra.objects.none()
 
@@ -81,7 +84,7 @@ class CrearGastoExtraAPIView(generics.CreateAPIView):
 #Vista para ver el detalle de un gasto extra (según tipo de usuario)
 class DetalleGastoExtraAPIView(RetrieveAPIView):
     queryset = GastoExtra.objects.all()
-    serializer_class = GastoExtraSerializer
+    serializer_class = GastoExtraDetailSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
@@ -97,10 +100,13 @@ class DetalleGastoExtraAPIView(RetrieveAPIView):
             if not contrato_activo:
                 raise PermissionDenied("No tienes permiso para ver este gasto.")
 
-        elif user.tipo_usuario == 'arrendador' or user.is_superuser:
+        elif user.tipo_usuario == 'arrendador':
             edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
             if gasto.apartamento.edificio_id not in edificios_ids:
                 raise PermissionDenied("No tienes permiso para ver este gasto.")
+        elif user.is_superuser:
+            # superuser puede ver todo, no limitar
+            pass
         else:
             raise PermissionDenied("No tienes permiso para ver este gasto.")
 

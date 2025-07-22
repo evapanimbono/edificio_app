@@ -7,6 +7,9 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 from django.utils import timezone
+from decimal import Decimal, ROUND_HALF_UP
+
+from tasas.models import TasaDia
 
 import logging
 logger = logging.getLogger(__name__)
@@ -34,6 +37,22 @@ class GastoExtra(models.Model):
         if not self.pk and (self.saldo_pendiente == 0 or self.saldo_pendiente is None):
             self.saldo_pendiente = self.monto_usd
         super().save(*args, **kwargs)
+
+    @property
+    def monto_bs_actual(self):
+        # Si la mensualidad está pagada, devolver 0 o None porque no hay saldo
+        if self.estado == 'pagado' or self.estado == 'anulado' :
+            return Decimal('0.00')
+    
+        # Obtener la tasa del día más reciente (sin filtro de 'activa' porque no existe)
+        tasa = TasaDia.objects.order_by('-fecha').first()
+        if not tasa:
+            # Si no hay tasa registrada, devolver None o 0, según convenga
+            return None
+        
+        # Calcular monto en bolívares con la tasa actual
+        monto_bs = Decimal(self.monto_usd) * tasa.valor_usd_bs
+        return monto_bs.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     def __str__(self):
        return f"{self.apartamento} - {self.descripcion[:30]}..."
