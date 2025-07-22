@@ -80,8 +80,25 @@ class RegistrarPagoView(GenericAPIView):
             return Response(serializer.errors, status=400)
         
         data = serializer.validated_data
-        usuario = request.user
-        tipo_usuario = usuario.tipo_usuario
+
+        mensualidades_data = data.get("mensualidades", [])
+        gastos_extra_data = data.get("gastos_extra", [])
+
+        mensualidades = Mensualidad.objects.filter(id__in=[m["id"] for m in mensualidades_data])
+        gastos_extra = GastoExtra.objects.filter(id__in=[g["id"] for g in gastos_extra_data])
+
+        # Si el usuario es arrendador, el dueño real es el arrendatario asociado
+        if request.user.tipo_usuario == 'arrendador':
+            if mensualidades.exists():
+                usuario_dueño = mensualidades.first().usuario
+            elif gastos_extra.exists():
+                usuario_dueño = gastos_extra.first().usuario
+            else:
+                raise ValidationError("No se especificaron mensualidades ni gastos extra.")
+        else:
+            usuario_dueño = request.user
+
+        tipo_usuario = request.user.tipo_usuario
 
         try:
             monto = Decimal(data.get("monto_total"))
@@ -112,7 +129,7 @@ class RegistrarPagoView(GenericAPIView):
 
         # Crear el pago principal
         pago = Pago.objects.create(
-            usuario=usuario,
+            usuario=usuario_dueño,
             monto_total=monto,
             monto_bs=monto_bs,
             tasa_usd=tasa.valor_usd_bs,
@@ -120,13 +137,13 @@ class RegistrarPagoView(GenericAPIView):
             fecha_pago=fecha_pago,
             tipo_pago=tipo_pago,
             estado_validacion="validado" if tipo_usuario == 'arrendador' else "pendiente",
-            validado_por=usuario if tipo_usuario == 'arrendador' else None,
+            validado_por=request.user if tipo_usuario == 'arrendador' else None,
             fecha_validacion=timezone.now() if tipo_usuario == 'arrendador' else None
         )
 
         # 💬 Agregar log del registro de pago
         LogAccion.objects.create(
-            usuario=usuario,
+            usuario=request.user,
             accion="registró un nuevo pago",
             tabla_afectada="pagos",
             registro_id=pago.id,
@@ -138,7 +155,7 @@ class RegistrarPagoView(GenericAPIView):
         for item in mensualidades_data:
             mensualidad = get_object_or_404(Mensualidad, id=item["id"], estado__in=["pendiente", "atrasado"])
 
-            if tipo_usuario == "arrendatario" and mensualidad.contrato.arrendatario_id != usuario.id:
+            if tipo_usuario == "arrendatario" and mensualidad.contrato.arrendatario_id != request.user.id:
                 return Response({"error": f"No tienes permiso para pagar la mensualidad {mensualidad.id}."}, status=403)
 
             try:
@@ -148,7 +165,7 @@ class RegistrarPagoView(GenericAPIView):
             
             if monto_item <= 0 or monto_item > mensualidad.saldo_pendiente:
                 return Response({"error": f"El monto para la mensualidad {mensualidad.id} excede el saldo pendiente o es inválido."}, status=400)
-
+    
             PagoMensualidad.objects.create(
                 pago=pago,
                 mensualidad=mensualidad,
@@ -167,7 +184,7 @@ class RegistrarPagoView(GenericAPIView):
 
             # 💬 Agregar log del registro de pago de una mensualidad
             LogAccion.objects.create(
-                usuario=usuario,
+                usuario=request.user,
                 accion="asoció una mensualidad al pago",
                 tabla_afectada="pagos_mensualidades",
                 registro_id=mensualidad.id,
@@ -182,7 +199,7 @@ class RegistrarPagoView(GenericAPIView):
             gasto = get_object_or_404(GastoExtra, id=item["id"], estado__in=["pendiente", "atrasado"])
 
             if tipo_usuario == "arrendatario":
-                contrato = Contrato.objects.filter(apartamento=gasto.apartamento, arrendatario=usuario, activo=True).first()
+                contrato = Contrato.objects.filter(apartamento=gasto.apartamento, arrendatario=request.user, activo=True).first()
                 if not contrato:
                     return Response({"error": f"No tienes permiso para pagar el gasto extra {gasto.id}."}, status=403)
 
@@ -212,7 +229,7 @@ class RegistrarPagoView(GenericAPIView):
 
             # 💬 Agregar log del registro de pago de un gasto extra
             LogAccion.objects.create(
-                usuario=usuario,
+                usuario=request.user,
                 accion="asoció un gasto extra al pago",
                 tabla_afectada="pagos_gastos_extra",
                 registro_id=gasto.id,
@@ -225,7 +242,7 @@ class RegistrarPagoView(GenericAPIView):
         if monto_acumulado != monto:
 
             LogAccion.objects.create(
-                usuario=usuario,
+                usuario=request.user,
                 accion="falló intento de registro de pago",
                 tabla_afectada="pagos",
                 registro_id=pago.id,
@@ -248,7 +265,7 @@ class RegistrarPagoView(GenericAPIView):
         
         if efectivo_data:
             LogAccion.objects.create(
-                usuario=usuario,
+                usuario=request.user,
                 accion="registró pago en efectivo",
                 tabla_afectada="pagos_efectivo",
                 registro_id=pago.id,
@@ -304,7 +321,7 @@ class RegistrarPagoView(GenericAPIView):
 
             # ✅ Agregar log de transferencia
             LogAccion.objects.create(
-                usuario=usuario,
+                usuario=request.user,
                 accion="registró pago por transferencia",
                 tabla_afectada="pagos_transferencias",
                 registro_id=pago.id,

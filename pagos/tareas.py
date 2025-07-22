@@ -83,10 +83,13 @@ def generar_recibo_para_pago(pago, usuario):
 
     #Asociar mensualidades al recibo
     for pm in pago.mensualidades_pagadas.all(): # asegúrate de tener esta lista antes
+        monto_bs_pagado = pm.monto_pagado * pago.tasa_usd
+
         ReciboMensualidad.objects.create(
             recibo=recibo,
             mensualidad=pm.mensualidad,
-            monto_usd=pm.monto_pagado
+            monto_usd=pm.monto_pagado,
+            monto_bs_pagado=monto_bs_pagado
         )
 
         LogAccion.objects.create(
@@ -99,18 +102,21 @@ def generar_recibo_para_pago(pago, usuario):
 
     # Asociar gastos extra al mismo recibo
     for pg in pago.gastos_pagados.all():  # asegúrate de tener esta lista antes
+        monto_bs_pagado = pg.monto_pagado * pago.tasa_usd
+
         ReciboGastoExtra.objects.create(
             recibo=recibo,
-            gasto_extra=pg.gasto,
-            monto_usd=pg.monto_pagado
+            gasto_extra=pg.gasto_extra,
+            monto_usd=pg.monto_pagado,
+            monto_bs_pagado=monto_bs_pagado
         )
 
         LogAccion.objects.create(
             usuario=usuario,
             accion="asoció gasto extra a recibo",
             tabla_afectada="ReciboGastoExtra",
-            registro_id=pg.gasto.id,
-            descripcion=f"Gasto extra #{pg.gasto.id} asociado al recibo #{recibo.id}"
+            registro_id=pg.gasto_extra.id,
+            descripcion=f"Gasto extra #{pg.gasto_extra.id} asociado al recibo #{recibo.id}"
         )
 
 #====================================================================================================================================================================
