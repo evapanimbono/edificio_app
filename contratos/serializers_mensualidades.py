@@ -8,8 +8,6 @@ from pagos.tareas import crear_recibo_para_mensualidad
 
 class MensualidadSerializer(serializers.ModelSerializer):
     monto_bs_actual = serializers.SerializerMethodField()
-    monto_bs_pagado = serializers.SerializerMethodField()
-    tasa_usada = serializers.SerializerMethodField()
     comentario_anulacion = serializers.CharField(read_only=True)
 
     class Meta:
@@ -17,21 +15,11 @@ class MensualidadSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'contrato', 'fecha_generacion', 'fecha_vencimiento',
             'monto_usd', 'saldo_pendiente', 'estado',
-            'monto_bs_actual', 'monto_bs_pagado', 'tasa_usada', 'comentario_anulacion',
+            'monto_bs_actual', 'comentario_anulacion',
         ]
 
     def get_monto_bs_actual(self, obj):
         return obj.monto_bs_actual  # Propiedad del modelo
-    
-    def get_monto_bs_pagado(self, obj):
-        if obj.estado == 'pagado':
-            return obj.monto_bs_pagado  # También asumes que existe en el modelo o se calcula
-        return None
-
-    def get_tasa_usada(self, obj):
-        if obj.estado == 'pagado':
-            return obj.tasa_usada  # Idem
-        return None
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

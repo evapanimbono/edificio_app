@@ -71,9 +71,6 @@ def generar_mensualidades_automaticas(): #Genera mensualidades automáticas para
 
             print(f"✅ Mensualidad generada para contrato {contrato.id} - {fecha_pago_este_mes}")
         
-            crear_recibo_para_mensualidad(mensualidad, creado_por=usuario_sistema)
-            print(f"🧾 Recibo generado para mensualidad {mensualidad.id}")
-
             total_generadas += 1
 
         except Exception as e:

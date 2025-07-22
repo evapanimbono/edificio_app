@@ -22,8 +22,6 @@ class Mensualidad(models.Model):
     fecha_generacion = models.DateField()
     fecha_vencimiento = models.DateField()
     monto_usd = models.DecimalField(max_digits=10, decimal_places=2)
-    monto_bs_pagado = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    tasa_usada = models.ForeignKey(TasaDia, null=True, blank=True, on_delete=models.SET_NULL)
     saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     comentario_anulacion = models.TextField(null=True, blank=True)
