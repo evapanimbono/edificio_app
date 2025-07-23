@@ -1,7 +1,16 @@
 from django.urls import path
-from .views import ListaPagosAPIView,RegistrarPagoView,ValidarPagoView,HistorialPagosView,DetallePagoView,DetallePagoPrevioAPIView,AnularPagoView
-
-from .views import ListaRecibosAPIView,ReciboDetalleAPIView
+from .views import (
+    ListaPagosAPIView,
+    RegistrarPagoView,
+    ValidarPagoView,
+    HistorialPagosView,
+    DetallePagoView,
+    DetallePagoPrevioAPIView,
+    AnularPagoView,
+    ListaRecibosAPIView,
+    ReciboDetalleAPIView,
+    EliminarPagoView
+) 
 
 urlpatterns = [
     path('', ListaPagosAPIView.as_view(), name='lista_pagos'), #Listar pagos filtrables (por tipo de usuario: arrendador ve pagos de su edificio, arrendatario ve los suyos)
@@ -11,6 +20,7 @@ urlpatterns = [
     path('detalle/<int:id>/', DetallePagoView.as_view(), name='detalle-pago'), #Muestra el detalle completo de un pago existente
     path('detalle-previo/', DetallePagoPrevioAPIView.as_view(), name='detalle-pago-previo'), # Detalle de pago previo (antes de registrar)
     path('anular/<int:pago_id>/', AnularPagoView.as_view(), name='anular_pago'), # Permite anular un pago solo si esta validado (arrendador o superusuario)
+    path('eliminar/<int:pago_id>/', EliminarPagoView.as_view(), name='eliminar_pago'), # Permite eliminar un pago solo si esta rechazado (arrendador o superusuario)
 
     path('recibos/', ListaRecibosAPIView.as_view(), name='lista_recibos'), #Lista de recibos (filtrable por estado, usuario, fechas)
     path('recibos/<int:id>/', ReciboDetalleAPIView.as_view(), name='detalle-recibo'), #Detalle de un recibo específico (por id)

@@ -3,6 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from django.db.models import Q
 from django.db import transaction
+from drf_yasg.utils import swagger_auto_schema
 
 from rest_framework import generics,status,filters,permissions
 from rest_framework.views import APIView
@@ -16,7 +17,13 @@ from datetime import datetime
 from decimal import Decimal,InvalidOperation
 
 from .models import Pago,PagoEfectivo,PagoTransferencias,PagoMensualidad, PagoGastoExtra
-from .serializers_pagos import PagoSerializer,PagoRegistroSerializer,DetallePagoSerializer,AnularPagoSerializer
+from .serializers_pagos import (
+    PagoSerializer,
+    PagoRegistroSerializer,
+    DetallePagoSerializer,
+    AnularPagoSerializer,
+    AccionValidarPagoSerializer
+)
 from .filters import PagoFilter
 from .permisos import EsArrendadorYAdministraElPago, EsArrendadorYAdministraElRecibo, EsArrendatarioYEsDueñoDelRecibo
 from pagos.tareas import generar_recibo_para_pago
@@ -341,6 +348,7 @@ class ValidarPagoView(APIView):
     
     permission_classes = [IsAuthenticated, EsArrendador, EsArrendadorYAdministraElPago]
 
+    @swagger_auto_schema(request_body=AccionValidarPagoSerializer)
     @transaction.atomic
     def post(self, request, pago_id):
         try:
@@ -359,7 +367,10 @@ class ValidarPagoView(APIView):
 
         if accion not in ['validar', 'rechazar']:
             return Response({'error': 'Acción inválida. Usa "validar" o "rechazar".'}, status=400)
-            
+
+        if accion == "rechazar" and not observacion:
+            return Response({'error': 'Debes indicar una observación al rechazar un pago.'}, status=400)
+
         if accion == "validar":
             # Validar el pago
             pago.estado_validacion = 'validado'
@@ -396,9 +407,12 @@ class ValidarPagoView(APIView):
                 gasto.save()
 
             # Crear recibo general
-            generar_recibo_para_pago(pago, request.user)
+            recibo = generar_recibo_para_pago(pago, request.user)
 
-            return Response({'mensaje': 'Pago validado correctamente y recibo generado'}, status=status.HTTP_200_OK)
+            return Response({
+                'mensaje': 'Pago validado correctamente y recibo generado',
+                'recibo_id': recibo.id
+            }, status=status.HTTP_200_OK)
             
         elif accion == "rechazar":
             # ❌ Rechazar pago
@@ -598,6 +612,7 @@ class DetallePagoPrevioAPIView(APIView):
 class AnularPagoView(APIView):
     permission_classes = [IsAuthenticated, EsArrendadorYAdministraElPago]
 
+    @swagger_auto_schema(request_body=AnularPagoSerializer)
     @transaction.atomic
     def post(self, request, pago_id):
         pago = get_object_or_404(Pago, id=pago_id)
@@ -607,8 +622,17 @@ class AnularPagoView(APIView):
 
         # Validar que el pago esté validado para poder anularlo
         if pago.estado_validacion != 'validado':
+            if pago.estado_validacion == 'rechazado':
+                return Response({"error": "No se pueden anular pagos rechazados."}, status=400)
+            elif pago.estado_validacion == 'anulado':
+                return Response({"error": "Este pago ya fue anulado."}, status=400)
+            return Response({"error": "Solo se pueden anular pagos en estado validado."}, status=400)
+
+        # Validar comentario de anulación
+        comentario = request.data.get('comentario')
+        if not comentario:
             return Response(
-                {"error": "Solo se pueden anular pagos que estén en estado validado."}, 
+                {"error": "Debes indicar un motivo para la anulación del pago."},
                 status=400
             )
 
@@ -642,6 +666,7 @@ class AnularPagoView(APIView):
 
         # Cambiar estado del pago a 'anulado'
         pago.estado_validacion = 'anulado'
+        pago.comentario_anulacion = comentario
         pago.save()
 
         # Anular recibos asociados a este pago
@@ -656,10 +681,67 @@ class AnularPagoView(APIView):
             accion='anuló un pago',
             tabla_afectada='pagos',
             registro_id=pago.id,
-            descripcion=f'Pago #{pago.id} anulado por {request.user.username} el {hoy}'
+            descripcion=f'Pago #{pago.id} anulado por {request.user.username} el {hoy}. Motivo: {comentario}'
         )
 
         return Response({"mensaje": "Pago anulado correctamente"}, status=status.HTTP_200_OK)
+
+#Vista para eliminar un pago (solo si está rechazado y solo arrendador o superusuario) 
+class EliminarPagoView(APIView):
+    permission_classes = [IsAuthenticated, EsArrendadorYAdministraElPago]
+
+    @transaction.atomic
+    def delete(self, request, pago_id):
+        pago = get_object_or_404(Pago, id=pago_id)
+
+        # Verificar permiso
+        self.check_object_permissions(request, pago)
+
+        # Solo se puede eliminar si el pago fue anulado o rechazado
+        if pago.estado_validacion not in ['rechazado', 'anulado']:
+            return Response(
+                {"error": "Solo se pueden eliminar pagos en estado rechazado o anulado."},
+            status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Guardar datos para el log antes de eliminar
+        id_pago = pago.id
+        username = request.user.username
+
+        # Eliminar relaciones directas
+        if hasattr(pago, 'pagoefectivo'):
+            pago.pagoefectivo.delete()
+
+        if hasattr(pago, 'pagotransferencias'):
+            pago.pagotransferencias.all().delete()
+
+        pago.mensualidades_pagadas.through.objects.filter(pago=pago).delete()
+        pago.gastos_pagados.through.objects.filter(pago=pago).delete()
+
+        # Eliminar recibos asociados (si existen)
+        recibos = Recibo.objects.filter(pago=pago)
+        for recibo in recibos:
+            # Eliminar recibos hijos primero
+            recibo.recibomensualidad_set.all().delete()
+            recibo.recibogastoextra_set.all().delete()
+            recibo.delete()
+
+        # Eliminar el pago
+        pago.delete()
+
+        # Log
+        LogAccion.objects.create(
+            usuario=request.user,
+            accion=f'eliminó un pago {pago.estado_validacion}',
+            tabla_afectada='pagos',
+            registro_id=id_pago,
+            descripcion=f"Pago #{id_pago} (estado: {pago.estado_validacion}) y sus recibos asociados fueron eliminados por {username}"
+        )
+
+        return Response(
+            {"mensaje": f"Pago #{id_pago} eliminado correctamente con sus recibos asociados."},
+            status=status.HTTP_200_OK
+        )
 
 #========================================================================================================================    
 #Vistas recibos

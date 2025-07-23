@@ -59,9 +59,9 @@ class PuedeEliminarMensualidadSinPagos(permissions.BasePermission):
                 return False
 
         # Bloquear si mensualidad está pagada o anulada
-        if obj.estado in ['pagado', 'anulado']:
-            raise PermissionDenied(f"No se puede eliminar una mensualidad con estado '{obj.estado}'.")
-
+        if obj.estado != 'anulado':
+            raise PermissionDenied("Solo se pueden eliminar mensualidades que hayan sido previamente anuladas.")
+       
         # Verificar si tiene pagos asociados
         tiene_pagos = PagoMensualidad.objects.filter(mensualidad=obj).exists()
         if tiene_pagos:
@@ -94,11 +94,14 @@ class PuedeAnularMensualidadConPagos(permissions.BasePermission):
         if obj.estado == 'anulado':
             raise PermissionDenied("La mensualidad ya está anulada.")
 
-        # Revisar si la mensualidad tiene pagos asociados (sólo puede anular si tiene pagos)
-        tiene_pagos = PagoMensualidad.objects.filter(mensualidad=obj).exists()
-        if not tiene_pagos:
-            raise PermissionDenied("Solo se pueden anular mensualidades que ya tengan pagos asociados.")
+         # Permitir solo si no hay pagos activos (pendientes o validados)
+        pagos_activos = PagoMensualidad.objects.filter(
+            mensualidad=obj
+        ).exclude(pago__estado_validacion__in=['anulado', 'rechazado'])
 
+        if pagos_activos.exists():
+            raise PermissionDenied("No se puede anular la mensualidad porque tiene pagos activos asociados.")
+        
         return True
 
 class EsArrendadorYAdministraLaMensualidad(permissions.BasePermission):

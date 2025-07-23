@@ -161,6 +161,13 @@ class AnularGastoExtraAPIView(GenericAPIView):
         if gasto.estado == 'anulado':
             return Response({"detail": "Este gasto ya está anulado."}, status=400)
 
+        pagos_activos = gasto.pagogastoextra_set.exclude(pago__estado_validacion='anulado')
+        if pagos_activos.exists():
+            return Response(
+            {"error": "No se puede anular el gasto extra porque tiene pagos activos asociados."},
+            status=400
+            )
+
         if not PagoGastoExtra.objects.filter(gasto_extra=gasto).exists():
             return Response({"detail": "Este gasto no tiene pagos asociados. Puedes eliminarlo en vez de anularlo."}, status=400)
 

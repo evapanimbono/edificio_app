@@ -113,9 +113,12 @@ class MensualidadEditarSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         mensualidad = self.instance
-        if mensualidad.estado in ['pagado', 'anulado']:
-            raise serializers.ValidationError("No se puede modificar una mensualidad pagada o anulada.")
+        if mensualidad.estado not in ['pendiente', 'atrasada']:
+            raise serializers.ValidationError("Solo se puede editar una mensualidad en estado pendiente o atrasada.")
         
+        if mensualidad.pagos.filter(estado='validado').exists():
+            raise serializers.ValidationError("No se puede editar una mensualidad que tiene pagos validados.")
+
         return data
 
     def update(self, instance, validated_data):

@@ -222,6 +222,13 @@ class AnularMensualidadAPIView(generics.GenericAPIView):
         if mensualidad.estado == 'pagado':
             raise ValidationError("No se puede anular una mensualidad pagada. Anule el pago primero.")
 
+        pagos_activos = mensualidad.pagomensualidad_set.exclude(pago__estado_validacion='anulado')
+        if pagos_activos.exists():
+           return Response(
+            {"error": "No se puede anular la mensualidad porque tiene pagos activos asociados."},
+            status=400
+            )
+
         if not comentario:
             raise ValidationError("Debe proporcionar un comentario para anular la mensualidad.")
 
