@@ -119,16 +119,8 @@ class ActualizarGastoExtraAPIView(UpdateAPIView):
     permission_classes = [IsAuthenticated, EsArrendador]  # Usamos permiso que tengas para arrendador
 
     def perform_update(self, serializer):
-        instance = self.get_object()
-        user = self.request.user
-
-        # Verificar si ya hay pagos asociados al gasto extra
-        from pagos.models import PagoGastoExtra
-
-        if PagoGastoExtra.objects.filter(gasto_extra=instance).exists():
-            raise PermissionDenied("No se puede editar un gasto que ya tiene pagos asociados.")
-
         instance = serializer.save()
+        user = self.request.user
 
         # Estado actualizado según fecha
         if instance.fecha_vencimiento:
@@ -161,15 +153,12 @@ class AnularGastoExtraAPIView(GenericAPIView):
         if gasto.estado == 'anulado':
             return Response({"detail": "Este gasto ya está anulado."}, status=400)
 
-        pagos_activos = gasto.pagogastoextra_set.exclude(pago__estado_validacion='anulado')
+        pagos_activos = gasto.pagogastoextra_set.exclude(pago__estado_validacion__in=['anulado', 'rechazado'])
         if pagos_activos.exists():
             return Response(
             {"error": "No se puede anular el gasto extra porque tiene pagos activos asociados."},
             status=400
             )
-
-        if not PagoGastoExtra.objects.filter(gasto_extra=gasto).exists():
-            return Response({"detail": "Este gasto no tiene pagos asociados. Puedes eliminarlo en vez de anularlo."}, status=400)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -197,14 +186,17 @@ class EliminarGastoExtraAPIView(DestroyAPIView):
     def perform_destroy(self, instance):
         user = self.request.user
 
-        # 🚨 Verificar si el gasto está en estado pagado
-        if instance.estado == 'pagado':
-            raise ValidationError("Este gasto extra no puede eliminarse porque ya está marcado como pagado.")
-
-        # 🚨 También verificar si hay pagos registrados explícitamente
-        pagos_asociados = PagoGastoExtra.objects.filter(gasto_extra=instance).exists()
-        if pagos_asociados:
-            raise ValidationError("Este gasto extra no puede eliminarse porque tiene pagos registrados.")
+        # 🚨 Verificar que el gasto esté anulado
+        if instance.estado != 'anulado':
+            raise ValidationError("Solo se pueden eliminar gastos extras anulados.")
+        
+        # 🚨 Verificar si tiene pagos pendientes o validados asociados
+        pagos_activos = PagoGastoExtra.objects.filter(
+            gasto_extra=instance,
+            pago__estado_validacion__in=['pendiente', 'validado']
+        ).exists()
+        if pagos_activos:
+            raise ValidationError("No se puede eliminar este gasto extra porque tiene pagos activos asociados.")
 
         # 🗑️ Eliminar el gasto extra
         gasto_id = instance.id

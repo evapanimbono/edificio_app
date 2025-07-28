@@ -110,9 +110,15 @@ class GastoExtraUpdateSerializer(serializers.ModelSerializer):
         if instance.estado in ['pagado', 'anulado']:
             raise serializers.ValidationError("No se puede editar un gasto pagado o anulado.")
 
-        if PagoGastoExtra.objects.filter(gasto_extra=instance).exists():
-            raise serializers.ValidationError("No se puede editar un gasto que ya tiene pagos registrados.")
+        # Solo se bloquea si existen pagos pendientes o validados
+        pagos_activos = PagoGastoExtra.objects.filter(
+            gasto_extra=instance,
+            estado__in=['pendiente', 'validado']
+        ).exists()
 
+        if pagos_activos:
+            raise serializers.ValidationError("No se puede editar un gasto que tiene pagos activos (pendientes o validados).")
+        
         return data
 
 class GastoExtraDetailSerializer(serializers.ModelSerializer):

@@ -116,8 +116,8 @@ class MensualidadEditarSerializer(serializers.ModelSerializer):
         if mensualidad.estado not in ['pendiente', 'atrasada']:
             raise serializers.ValidationError("Solo se puede editar una mensualidad en estado pendiente o atrasada.")
         
-        if mensualidad.pagos.filter(estado='validado').exists():
-            raise serializers.ValidationError("No se puede editar una mensualidad que tiene pagos validados.")
+        if mensualidad.pagos.filter(estado__in=['validado', 'pendiente']).exists():
+            raise serializers.ValidationError("No se puede editar una mensualidad que tiene pagos activos (pendientes o validados).")
 
         return data
 

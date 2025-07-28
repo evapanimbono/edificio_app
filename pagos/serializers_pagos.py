@@ -171,7 +171,7 @@ class DetallePagoSerializer(serializers.ModelSerializer):
         ]
 
 class AnularPagoSerializer(serializers.Serializer):
-    motivo = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    comentario = serializers.CharField(max_length=255, required=True, allow_blank=False)
 
 class AccionValidarPagoSerializer(serializers.Serializer):
     accion = serializers.ChoiceField(choices=['validar', 'rechazar'])

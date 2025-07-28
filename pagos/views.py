@@ -628,13 +628,10 @@ class AnularPagoView(APIView):
                 return Response({"error": "Este pago ya fue anulado."}, status=400)
             return Response({"error": "Solo se pueden anular pagos en estado validado."}, status=400)
 
-        # Validar comentario de anulación
-        comentario = request.data.get('comentario')
-        if not comentario:
-            return Response(
-                {"error": "Debes indicar un motivo para la anulación del pago."},
-                status=400
-            )
+        # Validar datos con serializer
+        serializer = AnularPagoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        comentario = serializer.validated_data['comentario']
 
         hoy = timezone.now().date()
 

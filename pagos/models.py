@@ -32,6 +32,7 @@ class Pago(models.Model):
     estado_validacion = models.CharField(max_length=20, choices=ESTADO_CHOICES)
     validado_por = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, db_column='validado_por', blank=True, null=True, related_name='pagos_validados')
     fecha_validacion = models.DateTimeField(blank=True, null=True)
+    comentario_anulacion = models.TextField(blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

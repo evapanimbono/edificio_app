@@ -22,9 +22,9 @@ from log.models import LogAccion
 
 from .permisos import(
     PuedeModificarOMostrarMensualidad,
-    PuedeEliminarMensualidadSinPagos,
+    PuedeEliminarMensualidad,
     EsArrendadorYAdministraLaMensualidad,
-    PuedeAnularMensualidadConPagos
+    PuedeAnularMensualidad
 )
 from usuarios.permissions import EsArrendador
 
@@ -187,10 +187,20 @@ class ActualizarMensualidadAPIView(generics.UpdateAPIView):
 #Vista para eliminar una mensualidad, accesible por arrendador o superusuario (sin pagos asociados)
 class EliminarMensualidadAPIView(generics.DestroyAPIView):
     queryset = Mensualidad.objects.all()
-    permission_classes = [PuedeEliminarMensualidadSinPagos]
+    permission_classes = [PuedeEliminarMensualidad]
 
     def perform_destroy(self, instance):
         usuario = self.request.user
+
+        # Verificar que la mensualidad esté anulada
+        if instance.estado != 'anulado':
+            raise ValidationError("Solo se pueden eliminar mensualidades anuladas.")
+
+        # Verificar que no tenga pagos pendientes o validados asociados
+        pagos_activos = instance.pagomensualidad_set.filter(pago__estado_validacion__in=['pendiente', 'validado']).exists()
+        if pagos_activos:
+            raise ValidationError("No se puede eliminar esta mensualidad porque tiene pagos activos asociados.")
+
         descripcion = f"Eliminó mensualidad ID {instance.id} del contrato ID {instance.contrato_id}"
 
         # Log
@@ -207,7 +217,7 @@ class EliminarMensualidadAPIView(generics.DestroyAPIView):
 class AnularMensualidadAPIView(generics.GenericAPIView):
     queryset = Mensualidad.objects.all()
     serializer_class = ComentarioAnulacionSerializer
-    permission_classes = [PuedeAnularMensualidadConPagos]
+    permission_classes = [PuedeAnularMensualidad]
 
     def post(self, request, *args, **kwargs):
         mensualidad = self.get_object()
@@ -222,7 +232,7 @@ class AnularMensualidadAPIView(generics.GenericAPIView):
         if mensualidad.estado == 'pagado':
             raise ValidationError("No se puede anular una mensualidad pagada. Anule el pago primero.")
 
-        pagos_activos = mensualidad.pagomensualidad_set.exclude(pago__estado_validacion='anulado')
+        pagos_activos = mensualidad.pagomensualidad_set.exclude(pago__estado_validacion__in=['anulado', 'rechazado'])
         if pagos_activos.exists():
            return Response(
             {"error": "No se puede anular la mensualidad porque tiene pagos activos asociados."},
@@ -233,7 +243,7 @@ class AnularMensualidadAPIView(generics.GenericAPIView):
             raise ValidationError("Debe proporcionar un comentario para anular la mensualidad.")
 
         # Aquí marcas la mensualidad como anulada
-        mensualidad.estado = 'anulado'  # deberías agregar esta opción en Mensualidad.ESTADO_CHOICES
+        mensualidad.estado = 'anulado'
         mensualidad.comentario_anulacion = comentario
         mensualidad.save()
 
