@@ -41,17 +41,23 @@ class GastoExtra(models.Model):
     @property
     def monto_bs_actual(self):
         # Si la mensualidad está pagada, devolver 0 o None porque no hay saldo
-        if self.estado == 'pagado' or self.estado == 'anulado' :
+        if self.estado in ['pagado', 'anulado']:
             return Decimal('0.00')
-    
-        # Obtener la tasa del día más reciente (sin filtro de 'activa' porque no existe)
-        tasa = TasaDia.objects.order_by('-fecha').first()
-        if not tasa:
-            # Si no hay tasa registrada, devolver None o 0, según convenga
-            return None
         
+        hoy = timezone.now().date()
+    
+        # Obtener la tasa del día activa más reciente 
+        tasa = (
+            TasaDia.objects
+            .filter(estado='activa', fecha__lte=hoy)
+            .order_by('-fecha')
+            .first()
+        )
+        if not tasa:
+            return Decimal('0.00') 
+
         # Calcular monto en bolívares con la tasa actual
-        monto_bs = Decimal(self.monto_usd) * tasa.valor_usd_bs
+        monto_bs = Decimal(self.saldo_pendiente) * tasa.valor_usd_bs
         return monto_bs.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     def __str__(self):

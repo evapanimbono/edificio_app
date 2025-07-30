@@ -54,10 +54,10 @@ class Mensualidad(models.Model):
             .first()
         )
         if not tasa:
-            return None
+            return Decimal('0.00')
         
         # Calcular monto en bolívares con la tasa actual
-        monto_bs = Decimal(self.monto_usd) * tasa.valor_usd_bs
+        monto_bs = Decimal(self.saldo_pendiente) * tasa.valor_usd_bs
         return monto_bs.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     def __str__(self):
