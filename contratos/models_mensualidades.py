@@ -8,6 +8,7 @@
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
+from datetime import date
 
 from tasas.models import TasaDia
 
@@ -35,14 +36,24 @@ class Mensualidad(models.Model):
 
     @property
     def monto_bs_actual(self):
+        """
+        Devuelve el monto pendiente en bolívares basado en la tasa activa más reciente del día actual.
+        Si la mensualidad está pagada o anulada, retorna 0.00.
+        """
         # Si la mensualidad está pagada, devolver 0 o None porque no hay saldo
-        if self.estado == 'pagado' or self.estado == 'anulado' :
+        if self.estado ['pagado', 'anulado']:
             return Decimal('0.00')
+        
+        hoy = date.today()
     
-        # Obtener la tasa del día más reciente (sin filtro de 'activa' porque no existe)
-        tasa = TasaDia.objects.order_by('-fecha').first()
+        # Buscar la tasa activa más reciente antes o en la fecha actual
+        tasa = (
+            TasaDia.objects
+            .filter(fecha__lte=hoy, estado='activa')
+            .order_by('-fecha')
+            .first()
+        )
         if not tasa:
-            # Si no hay tasa registrada, devolver None o 0, según convenga
             return None
         
         # Calcular monto en bolívares con la tasa actual

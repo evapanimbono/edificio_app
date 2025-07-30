@@ -27,9 +27,15 @@ def generar_mensualidades_automaticas(): #Genera mensualidades automáticas para
         print("No hay contratos activos.")
         return
 
-    tasa = TasaDia.objects.order_by('-fecha').first()
-    if not tasa:
-        print("⚠️ Advertencia: No hay tasa registrada. Se generarán mensualidades igual.")
+    tasa_activa = (
+        TasaDia.objects
+        .filter(estado='activa', fecha__lte=hoy)
+        .order_by('-fecha')
+        .first()
+    )
+    if not tasa_activa:
+        print("⚠️ No se generarán mensualidades: no hay ninguna tasa activa registrada hasta la fecha de hoy.")
+        return
     
     total_generadas = 0
 
