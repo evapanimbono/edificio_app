@@ -9,7 +9,7 @@ class TasaDiaSerializer(serializers.ModelSerializer):
 class TasaDiaDetalleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TasaDia
-        fields = ['fecha', 'valor_usd_bs', 'fuente', 'registrada_por']
+        fields = ['fecha', 'valor_usd_bs', 'fuente', 'registrada_por','estado']
 
 class TasaDiaCrearSerializer(serializers.ModelSerializer):
     class Meta:
