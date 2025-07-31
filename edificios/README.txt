@@ -3,8 +3,8 @@ Esta app gestiona los edificios y apartamentos dentro del sistema de administrac
 Incluye vistas para listar, crear, editar y ver detalles, con permisos diferenciados por tipo de usuario.
 
 📁 Modelos principales
-Edificio: contiene nombre, dirección, coordenadas, descripción y fechas.
-Apartamento: relacionado a un edificio, con campos como número, piso, habitaciones, baños, estado, etc.
+Edificio: contiene nombre, dirección, latitud, longitud, descripción y fechas.
+Apartamento: relacionado a un edificio, con campos como número de apartamento, piso, habitaciones, baños, estado, etc.
 
 🔐 Permisos y Roles
 Vista	                           Superuser	Arrendador	                      Arrendatario

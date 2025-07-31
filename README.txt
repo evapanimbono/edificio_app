@@ -28,19 +28,19 @@ notificaciones Sistema de notificaciones y alertas (pendiente)
 encuestas	   Gestión de encuestas internas (pendiente)
 
 Estado general del desarrollo
-Módulo	Vistas y Permisos	Serializers	Lógica Funcional	Logs	Filtros
-============================================================================
-usuarios	   ✅	           ✅	        ✅	         ✅	     ✅
-pagos	       ✅	           ✅	        ✅	         ✅	     ✅
-contratos	   ✅	           ✅	        ✅	         ✅	     ✅
-mensualidades  ✅	           ✅	        ✅	         ✅	     🚧
-edificios	   ✅	           ✅	        ✅	         ✅	     ✅
-apartamentos   ✅	           ✅	        ✅	         ✅	     ✅
-gastos	       ✅	           ✅	        ✅	         ✅	     ✅
-tasas	       ⏳	           ✅	        ✅	         ✅	     🚧
-log	           ✅	           ✅	        ✅	         ✅       ✅
-notificaciones	💤 (pendiente)	 —	           —	          —         —
-encuestas	    💤 (pendiente)	 —	           —	          —         —
+Módulo          Vistas y Permisos   Serializers   Lógica Funcional      Logs   Filtros
+======================================================================================
+usuarios              ✅                 ✅               ✅            ✅       ✅
+pagos                 ✅                 ✅               ✅            ✅       ✅
+contratos             ✅                 ✅               ✅            ✅       ✅
+mensualidades         ✅                 ✅               ✅            ✅       ✅
+edificios             ✅                 ✅               ✅            ✅       ✅
+apartamentos          ✅                 ✅               ✅            ✅       ✅
+gastos                ✅                 ✅               ✅            ✅       ✅
+tasas                 ✅                 ✅               ✅            ✅       ✅
+log                   ✅                 ✅               ✅            ✅       ✅
+notificaciones        💤 (pendiente)      —                —              —        —
+encuestas             💤 (pendiente)      —                —              —        —
 
 ⚙️ Instalación y puesta en marcha
     1. Clonar el repositorio:

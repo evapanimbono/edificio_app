@@ -1,6 +1,6 @@
 📊 App Gastos
 Esta app gestiona los Gastos Extra relacionados con apartamentos en edificios, con control de acceso según el tipo de usuario 
-(superuser, arrendador, arrendatario), y acciones como crear, listar, actualizar, eliminar y consultar detalles de gastos extra.
+(superuser, arrendador, arrendatario), y acciones como crear, listar, actualizar, anular, eliminar y consultar detalles de gastos extra.
 
 🗂️ Modelo principal
 GastoExtra con campos relevantes:
@@ -11,9 +11,8 @@ saldo_pendiente 💰
 fecha_generacion 📅
 fecha_vencimiento ⏰ (opcional)
 estado (pendiente, pagado, atrasado) ⏳✔️❌
+comentario_anulacion 📝❌
 timestamps: created_at, updated_at
-
-Incluye métodos para actualizar y eliminar recibos vinculados automáticamente.
 
 📄 Serializers
 GastoExtraSerializer 🧾: para listar y mostrar detalles completos.
@@ -30,8 +29,8 @@ Restricción: arrendatarios no pueden filtrar por apartamento ni fechas de gener
 
 CrearGastoExtraAPIView (POST)
 Solo superuser y arrendadores pueden crear gastos.
-Se crea automáticamente un recibo vinculado.
 Se registra acción en log.
+
 DetalleGastoExtraAPIView (GET)
 Permisos según tipo de usuario:
 Arrendatarios sólo gastos asociados a sus contratos activos.
@@ -39,15 +38,18 @@ Arrendadores y superusuarios sólo gastos en edificios que administran.
 
 ActualizarGastoExtraAPIView (PATCH/PUT)
 Solo superuser y arrendadores.
-No se puede actualizar un gasto con pagos asociados.
+No se puede actualizar un gasto con pagos validados o pendientes asociados.
 Actualiza estado según fecha vencimiento.
-Actualiza recibo asociado.
+Registra acción en log.
+
+AnularGastoExtraAPIView (UPDATE)
+Solo superuser y arrendadores.
+No se puede anular gasto pagado ni con pagos validados o pendientes asociados.
 Registra acción en log.
 
 EliminarGastoExtraAPIView (DELETE)
 Solo superuser y arrendadores.
-No se puede eliminar gasto pagado ni con pagos asociados.
-Elimina recibo vinculado si existe.
+No se puede eliminar gasto que no haya sido anulado antes.
 Registra acción en log.
 
 🔐 Permisos y validaciones
@@ -56,7 +58,7 @@ Arrendadores: gestionan gastos en edificios asignados.
 Validación para que monto sea mayor a cero.
 Validación para apartamento válido con contrato activo al crear.
 
-No se permite eliminar o modificar gastos que ya tienen pagos asociados o estén pagados.
+No se permite eliminar o modificar gastos que ya tienen pagos validados o pendientes asociados o estén pagados.
 
 ⚙️ Filtros disponibles (con django-filters)
 Para todos los usuarios:
@@ -74,4 +76,5 @@ GET	               /	                   Listar gastos extra	        Todos usuari
 POST	           /crear/	               Crear un gasto extra	        Superuser, Arrendador
 GET	               /detalle/<int:pk>/	   Ver detalle de gasto extra	Según permisos
 PATCH	           /editar/<int:pk>/	   Actualizar gasto extra	    Superuser, Arrendador
+UPDATE	           /anular/<int:pk>/	   Anular gasto extra	        Superuser, Arrendador
 DELETE	           /eliminar/<int:pk>/	   Eliminar gasto extra	        Superuser, Arrendador

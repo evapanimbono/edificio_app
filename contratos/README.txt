@@ -10,8 +10,8 @@ Esta app gestiona los contratos de arrendamiento y las mensualidades relacionada
 📆 Gestionar mensualidades:
     Crear mensualidades (solo superusuario).
     Modificar solo la fecha de vencimiento (arrendador o superusuario).
-    Eliminar mensualidades sin pagos asociados.
-    Anular mensualidades con pagos asociados.
+    Eliminar mensualidades (solo anuladas anteriormente).
+    Anular mensualidades (solo si no tienen pagos validados o pendientes asociados).
 ⚙️ Generación automática de mensualidades para contratos activos en la fecha de pago mensual.
 🧾 Registro de logs para todas las acciones importantes (crear, editar, eliminar, anular).
 
@@ -35,15 +35,15 @@ Mensualidad
 🔸 Fechas de auditoría: created_at, updated_at.
 
 🛂 Permisos y roles
-Acción	                  🧍‍♂️ Arrendatario	         👨‍💼 Arrendador	                             🧑‍💼 Superusuario
-Ver contratos propios	        ✅ Sí	                   ✅ Sí (apartamentos administrados)	        ✅ Sí
-Crear contrato	                ❌ No	                   ✅ Sí	                                        ✅ Sí
-Editar / eliminar contrato	    ❌ No	                   ✅ Sí	                                        ✅ Sí
-Ver mensualidades	            ✅ Sí (propias)	           ✅ Sí (apartamentos administrados)	        ✅ Sí
-Crear mensualidad	            ❌ No	                   ❌ No	                                        ✅ Sí
-Editar mensualidad	            ❌ No	                   ✅ Sí (solo fecha de vencimiento)	            ✅ Sí
-Eliminar mensualidad	        ❌ No	                   ✅ Sí (sin pagos asociados)	                ✅ Sí
-Anular mensualidad	            ❌ No	                   ✅ Sí (con pagos asociados)	                ✅ Sí
+Acción	                  🧍‍♂️ Arrendatario	         👨‍💼 Arrendador	                                        🧑‍💼 Superusuario
+Ver contratos propios	        ✅ Sí	                   ✅ Sí (apartamentos administrados)	                ✅ Sí
+Crear contrato	                ❌ No	                   ✅ Sí	                                                ✅ Sí
+Editar / eliminar contrato	    ❌ No	                   ✅ Sí	                                                ✅ Sí
+Ver mensualidades	            ✅ Sí (propias)	           ✅ Sí (apartamentos administrados)	                ✅ Sí
+Crear mensualidad	            ❌ No	                   ❌ No	                                                ✅ Sí
+Editar mensualidad	            ❌ No	                   ✅ Sí (solo fecha de vencimiento)	                    ✅ Sí
+Eliminar mensualidad	        ❌ No	                   ✅ Sí (solo anuladas)	                                ✅ Sí
+Anular mensualidad	            ❌ No	                   ✅ Sí (sin pagos validados o pendientes asociados)	✅ Sí
 
 🔗 Endpoints principales (URLs)
 Contratos
@@ -59,8 +59,8 @@ GET	           /mensualidades/	                Listar mensualidades según usuar
 GET	           /mensualidades/detalle/<pk>/	    Ver detalle mensualidad	             Arrendatario / Arrendador / Superusuario
 POST	       /mensualidades/crear/	        Crear mensualidad	                 Superusuario
 PUT/PATCH	   /mensualidades/actualizar/<pk>/	Editar mensualidad (fecha venc.)	 Arrendador / Superusuario
-DELETE	       /mensualidades/eliminar/<pk>/	Eliminar mensualidad (sin pagos)	 Arrendador / Superusuario
-POST	       /mensualidades/anular/<pk>/	    Anular mensualidad (con pagos)	     Arrendador / Superusuario
+DELETE	       /mensualidades/eliminar/<pk>/	Eliminar mensualidad (anuladas)	     Arrendador / Superusuario
+POST	       /mensualidades/anular/<pk>/	    Anular mensualidad (sin pagos)	     Arrendador / Superusuario
 
 🔍 Filtros disponibles
 Para contratos
@@ -76,9 +76,7 @@ Para mensualidades
 📄 Contrato, apartamento, usuario, edificio
 
 ⚙️ Tareas automáticas
-generar_mensualidades_automaticas: crea mensualidades automáticamente para contratos activos en la fecha de pago mensual.
-
-Registra logs y genera recibos relacionados.
+generar_mensualidades_automaticas: crea mensualidades automáticamente para contratos activos en la fecha de pago mensual. Registra logs.
 
 🧾 Registro de acciones (logs)
 Cada acción importante (crear, actualizar, eliminar, anular) queda registrada en LogAccion con:
