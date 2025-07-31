@@ -79,6 +79,12 @@ class RegistrarPagoView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PagoRegistroSerializer
 
+    def obtener_apartamentos_del_arrendador(self, usuario):
+        return Apartamento.objects.filter(
+            edificio__usuarioedificio__usuario=usuario,
+            edificio__usuarioedificio__rol_asignado__in=['administrador', 'colaborador']
+        ).values_list('id', flat=True)
+
     @transaction.atomic
     def post(self, request):
 
@@ -124,14 +130,9 @@ class RegistrarPagoView(GenericAPIView):
         monto_acumulado = Decimal('0.00')
 
         tasa = data.get("tasa_dia")
-        if tipo_usuario == 'arrendador':
-            if not tasa:
-                return Response({"error": "Debes seleccionar una tasa si eres arrendador."}, status=400)
-        else:
-            tasa = TasaDia.objects.order_by('-fecha').first()
-            if not tasa:
-                return Response({"error": "No hay una tasa registrada para calcular el monto en Bs."}, status=400)
-
+        if not tasa:
+            return Response({"error": "No se pudo determinar la tasa para este pago."}, status=400)
+        
         monto_bs = round(monto * tasa.valor_usd_bs)
 
         # Crear el pago principal
@@ -162,9 +163,14 @@ class RegistrarPagoView(GenericAPIView):
         for item in mensualidades_data:
             mensualidad = get_object_or_404(Mensualidad, id=item["id"], estado__in=["pendiente", "atrasado"])
 
-            if tipo_usuario == "arrendatario" and mensualidad.contrato.arrendatario_id != request.user.id:
-                return Response({"error": f"No tienes permiso para pagar la mensualidad {mensualidad.id}."}, status=403)
-
+            if tipo_usuario == "arrendatario":
+                if mensualidad.contrato.arrendatario_id != request.user.id:
+                    return Response({"error": f"No tienes permiso para pagar la mensualidad {mensualidad.id}."}, status=403)
+            elif tipo_usuario == "arrendador":
+                apartamentos_autorizados = self.obtener_apartamentos_del_arrendador(request.user)
+                if mensualidad.contrato.apartamento_id not in apartamentos_autorizados:
+                    return Response({"error": f"No tienes permiso para pagar la mensualidad {mensualidad.id}."}, status=403)
+            
             try:
                 monto_item = Decimal(item["monto"])
             except (InvalidOperation, TypeError):
@@ -208,6 +214,10 @@ class RegistrarPagoView(GenericAPIView):
             if tipo_usuario == "arrendatario":
                 contrato = Contrato.objects.filter(apartamento=gasto.apartamento, arrendatario=request.user, activo=True).first()
                 if not contrato:
+                    return Response({"error": f"No tienes permiso para pagar el gasto extra {gasto.id}."}, status=403)
+            elif tipo_usuario == "arrendador":
+                apartamentos_autorizados = self.obtener_apartamentos_del_arrendador(request.user)
+                if gasto.apartamento_id not in apartamentos_autorizados:
                     return Response({"error": f"No tienes permiso para pagar el gasto extra {gasto.id}."}, status=403)
 
             try:
@@ -299,16 +309,16 @@ class RegistrarPagoView(GenericAPIView):
                 except ValueError:
                     return Response({"error": "Formato de fecha de transferencia inválido. Usa AAAA-MM-DD."}, status=400)
 
-            # Buscar la tasa correspondiente a esa fecha
-            tasa_fecha = TasaDia.objects.filter(fecha=fecha_transferencia).first()
-            if not tasa_fecha:
-                return Response({"error": f"No hay tasa registrada para el día {fecha_transferencia}."}, status=400)
-
+            if fecha_transferencia != tasa.fecha:
+                return Response({
+                    "error": f"La tasa usada (fecha: {tasa.fecha}) no corresponde con la fecha de transferencia ingresada ({fecha_transferencia})."
+                }, status=400)
+            
              # Calcular cuánto debería haber transferido en Bs
-            total_efectivo = sum(Decimal(b.get("denominacion") or 0) for b in data.get("efectivo", []))
+            total_efectivo = sum(Decimal(b.get("denominacion") or "0.00") for b in data.get("efectivo", []))
             monto_usd_a_transferir = pago.monto_total - total_efectivo
 
-            monto_bs_esperado = round(monto_usd_a_transferir * tasa_fecha.valor_usd_bs, 2)
+            monto_bs_esperado = round(monto_usd_a_transferir * tasa.valor_usd_bs, 2)
             diferencia = abs(monto_bs_transferido - monto_bs_esperado)
 
             if diferencia > Decimal("1.00"):
@@ -508,6 +518,12 @@ class DetallePagoView(RetrieveAPIView):
 class DetallePagoPrevioAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def obtener_apartamentos_del_arrendador(self,usuario):
+        return Apartamento.objects.filter(
+            edificio__usuarioedificio__usuario=usuario,
+            edificio__usuarioedificio__rol_asignado__in=['administrador', 'colaborador']
+        ).values_list('id', flat=True)
+
     def post(self, request):
         usuario = request.user
         mensualidades_ids = request.data.get('mensualidades', [])
@@ -529,7 +545,7 @@ class DetallePagoPrevioAPIView(APIView):
                 fecha_transferencia = datetime.strptime(fecha_transferencia_str, "%Y-%m-%d").date()
             except ValueError:
                 return Response({"error": "Formato inválido para fecha_transferencia. Usa AAAA-MM-DD."}, status=400)
-            tasa = TasaDia.objects.filter(fecha=fecha_transferencia).first()
+            tasa = TasaDia.objects.filter(fecha=fecha_transferencia, activa=True).first()
             if not tasa:
                 return Response({"error": f"No hay tasa registrada para la fecha {fecha_transferencia}."}, status=400)
         else:
@@ -551,8 +567,13 @@ class DetallePagoPrevioAPIView(APIView):
         ).select_related('contrato', 'contrato__arrendatario')
 
         for m in mensualidades:
-            if usuario.tipo_usuario == 'arrendatario' and m.contrato.arrendatario_id != usuario.id:
-                return Response({"error": f"No tienes permiso para la mensualidad {m.id}."}, status=403)
+            if usuario.tipo_usuario == 'arrendatario':
+                if m.contrato.arrendatario_id != usuario.id:
+                    return Response({"error": f"No tienes permiso para la mensualidad {m.id}."}, status=403)
+            elif usuario.tipo_usuario == 'arrendador':
+                apartamentos_autorizados = self.obtener_apartamentos_del_arrendador(usuario)
+                if m.contrato.apartamento_id not in apartamentos_autorizados:
+                    return Response({"error": f"No tienes permiso para la mensualidad {m.id}."}, status=403)
 
         # Obtener gastos extra y validar acceso
         gastos = GastoExtra.objects.filter(
@@ -564,6 +585,10 @@ class DetallePagoPrevioAPIView(APIView):
             if usuario.tipo_usuario == 'arrendatario':
                 contrato = Contrato.objects.filter(apartamento=g.apartamento, arrendatario=usuario, activo=True).first()
                 if not contrato:
+                    return Response({"error": f"No tienes permiso para el gasto extra {g.id}."}, status=403)
+            elif usuario.tipo_usuario == 'arrendador':
+                apartamentos_autorizados = self.obtener_apartamentos_del_arrendador(usuario)
+                if g.apartamento_id not in apartamentos_autorizados:
                     return Response({"error": f"No tienes permiso para el gasto extra {g.id}."}, status=403)
 
         total_usd = Decimal('0.00')

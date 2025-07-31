@@ -53,21 +53,15 @@ class PagoRegistroSerializer(serializers.Serializer):
 
     efectivo = BilleteSerializer(many=True, required=False)
     transferencia = TransferenciaSerializer(required=False)
-    tasa_id = serializers.PrimaryKeyRelatedField(queryset=TasaDia.objects.all(),required=False,source='tasa_dia')
     
     def validate(self, data):
         usuario = self.context["request"].user
-        tipo_usuario = usuario.tipo_usuario
 
         # 1. Validar que haya al menos una mensualidad o gasto
         if not data.get("mensualidades") and not data.get("gastos_extra"):
             raise serializers.ValidationError("Debes incluir al menos una mensualidad o gasto extra.")
 
-        # 2. Validar que el arrendador incluya una tasa
-        if tipo_usuario == 'arrendador' and not data.get("tasa_dia"):
-            raise serializers.ValidationError("El campo 'tasa_dia' es obligatorio si eres arrendador.")
-
-        # 3. Validar que el tipo de pago tenga sus datos correspondientes
+        # 2. Validar tipo de pago y datos correspondientes
         tipo_pago = data.get("tipo_pago")
 
         if tipo_pago == "efectivo" and not data.get("efectivo"):
@@ -80,19 +74,35 @@ class PagoRegistroSerializer(serializers.Serializer):
             if not data.get("efectivo") and not data.get("transferencia"):
                 raise serializers.ValidationError("Debes incluir efectivo o transferencia si seleccionas tipo mixto.")
 
-        # 4. Validaciones adicionales para transferencias
-        if data.get("transferencia"):
-            transferencia_data = data["transferencia"]
+        # 3. Obtener la fecha relevante para aplicar la tasa
+        fecha_base = None
+
+        if tipo_pago == "transferencia" or tipo_pago == "mixto":
+            transferencia_data = data.get("transferencia")
+            if not transferencia_data:
+                raise serializers.ValidationError("Faltan los datos de la transferencia.")
+
             fecha_transferencia = transferencia_data.get("fecha_transferencia")
-            if fecha_transferencia:
-                # ✅ Validar que no sea una fecha futura
-                if fecha_transferencia > timezone.now().date():
-                    raise serializers.ValidationError("La fecha de la transferencia no puede ser en el futuro.")
 
-                # ✅ Validar que exista una tasa para esa fecha
-                if not TasaDia.objects.filter(fecha=fecha_transferencia).exists():
-                    raise serializers.ValidationError(f"No se encontró una tasa registrada para el día {fecha_transferencia}.")
+            if not fecha_transferencia:
+                raise serializers.ValidationError("Debes especificar la fecha de la transferencia.")
 
+            if fecha_transferencia > timezone.now().date():
+                raise serializers.ValidationError("La fecha de la transferencia no puede ser en el futuro.")
+
+            fecha_base = fecha_transferencia
+        else:
+            # tipo efectivo
+            fecha_base = data.get("fecha_pago")
+
+        # 4. Buscar tasa activa para esa fecha
+        tasa = TasaDia.objects.filter(fecha=fecha_base, activa=True).first()
+        if not tasa:
+            raise serializers.ValidationError(f"No se encontró una tasa activa para el día {fecha_base}.")
+
+        # 5. Almacenar la tasa para usar luego en create()
+        data["tasa_dia"] = tasa
+        
         return data
 
 class DetallePagoSerializer(serializers.ModelSerializer):       
