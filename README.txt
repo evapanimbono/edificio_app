@@ -5,7 +5,7 @@ Está diseñada para ser modular, segura y escalable, adaptándose a las necesid
 
 🛠️ Tecnologías usadas
 Componente	            Tecnología
-Backend	                Django 5.2 + Django REST Framework
+Backend	                Django 5.0 + Django REST Framework
 Base de datos	        PostgreSQL
 Autenticación	        JWT (con SimpleJWT)
 Filtros	                django-filter
