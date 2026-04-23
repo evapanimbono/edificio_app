@@ -13,19 +13,43 @@ class Notificacion(models.Model):
         ('recordatorio', 'Recordatorio'),
         ('anuncio', 'Anuncio'),
         ('personal', 'Mensaje Personal'),
+        ('sistema', 'Sistema'),
     ]
-    emisor = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, blank=True, null=True)
-    receptor = models.ForeignKey('usuarios.Usuario', models.DO_NOTHING, related_name='notificaciones_receptor_set', blank=True, null=True)
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('enviada', 'Enviada'),
+        ('leida', 'Leída'),
+        ('archivada', 'Archivada'),
+    ]
+    emisor = models.ForeignKey('usuarios.Usuario', on_delete=models.DO_NOTHING, blank=True, null=True,related_name='notificaciones_emitidas')
+    receptor = models.ForeignKey('usuarios.Usuario', on_delete=models.DO_NOTHING, related_name='notificaciones_recibidas', blank=True, null=True)
+    
     titulo = models.CharField(max_length=100)
     mensaje = models.TextField()
+    
     tipo = models.CharField(max_length=50, choices=TIPO_CHOICES)
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default='pendiente'
+    )
     fecha_envio = models.DateTimeField(blank=True, null=True)
-    leido = models.BooleanField(blank=True, null=True,default=False)
+    leido = models.BooleanField(default=False)
+
+    objeto_tipo = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Ej: pago, recibo, mensualidad, gasto_extra"
+    )    
+    objeto_id = models.PositiveIntegerField(blank=True, null=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.titulo} para {self.receptor}"
-
     class Meta:
         db_table = 'notificaciones'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.titulo} → {self.receptor}"
