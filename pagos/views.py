@@ -1,7 +1,8 @@
 from django.shortcuts import render,get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum, Value, CharField, F, IntegerField, TextField, DecimalField
+from django.db.models.functions import Cast, ExtractMonth, ExtractYear
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 
@@ -18,6 +19,7 @@ from decimal import Decimal,InvalidOperation
 
 from .models import Pago,PagoEfectivo,PagoTransferencias,PagoMensualidad, PagoGastoExtra
 from .serializers_pagos import (
+    EstadoCuentaSerializer,
     PagoSerializer,
     PagoRegistroSerializer,
     DetallePagoSerializer,
@@ -764,6 +766,149 @@ class EliminarPagoView(APIView):
             {"mensaje": f"Pago #{id_pago} eliminado correctamente con sus recibos asociados."},
             status=status.HTTP_200_OK
         )
+
+#Vista para mostrar el estado de cuenta de un apartamento específico (total mensualidades, gastos extra, pagos realizados y saldo pendiente)
+class EstadoCuentaApartamentoAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, apartamento_id):
+        # 1. Buscar el apartamento
+        try:
+            apt = Apartamento.objects.get(id=apartamento_id)
+        except Apartamento.DoesNotExist:
+            return Response({"error": "Apartamento no encontrado"}, status=404)
+
+        # 2. SEGURIDAD AJUSTADA PARA PRUEBAS
+        user = request.user
+        
+        # Agregamos 'user.is_authenticated' para evitar el error del AnonymousUser
+        if user.is_authenticated:
+            if not user.is_superuser and user.tipo_usuario != 'arrendador':
+                tiene_contrato = apt.contratos.filter(arrendatario=user, activo=True).exists()
+                if not tiene_contrato:
+                    raise PermissionDenied("No tienes permiso para ver este estado de cuenta.")
+        # Si no está autenticado, el código seguirá adelante (porque pusimos AllowAny arriba)
+
+        # 3. CÁLCULOS
+        # Sumar mensualidades del contrato activo
+        total_mensualidades = Mensualidad.objects.filter(
+            contrato__apartamento=apt
+        ).aggregate(total=Sum('monto_usd'))['total'] or 0
+
+        # Sumar gastos extra
+        total_gastos_extra = GastoExtra.objects.filter(
+            apartamento=apt
+        ).aggregate(total=Sum('monto_usd'))['total'] or 0
+
+        # Sumar pagos validados
+        total_pagado = Pago.objects.filter(
+            mensualidades_pagadas__mensualidad__contrato__apartamento=apt,
+            estado_validacion='validado'
+        ).distinct().aggregate(total=Sum('monto_total'))['total'] or 0
+
+        # Resultado final
+        m_total = Decimal(str(total_mensualidades))
+        g_total = Decimal(str(total_gastos_extra))
+        p_total = Decimal(str(total_pagado))
+        
+        saldo_pendiente = (m_total + g_total) - p_total
+
+        # 4. RESPUESTA
+        datos = {
+            "id_apartamento": apt.id,
+            "nombre_apartamento": str(apt),
+            "total_mensualidades": float(m_total),
+            "total_gastos_extra": float(g_total),
+            "total_pagado": float(p_total),
+            "saldo_pendiente": round(saldo_pendiente,2),
+            "moneda": "USD"
+        }
+        
+        serializer = EstadoCuentaSerializer(datos)
+        return Response(serializer.data)
+
+#Vista para mostrar el historial de movimientos (mensualidades, gastos extra y pagos) de un apartamento específico, ordenados por fecha (más reciente primero)
+class HistorialMovimientosAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, apartamento_id):
+        if getattr(self, 'swagger_fake_view', False):
+            return Response([])
+        
+        try:
+            apt = Apartamento.objects.get(id=apartamento_id)
+        except Apartamento.DoesNotExist:
+            return Response({"error": "Apartamento no encontrado"}, status=404)
+
+        # 1. Obtener Mensualidades (Cargos)
+        mensualidades = Mensualidad.objects.filter(contrato__apartamento=apt).annotate(
+            fecha_mov=F('fecha_generacion'),
+            concepto_mov=Cast(Value('Mensualidad'), output_field=TextField()),
+            monto_mov=Cast(F('monto_usd'), output_field=DecimalField(max_digits=10, decimal_places=2)),
+            tipo_mov=Cast(Value('CARGO'), output_field=TextField()), # Forzamos tipo texto
+            mes_num=Cast(ExtractMonth('fecha_generacion'), output_field=IntegerField()),
+            year_num=Cast(ExtractYear('fecha_generacion'), output_field=IntegerField())
+        ).values('fecha_mov', 'concepto_mov', 'monto_mov', 'tipo_mov', 'mes_num', 'year_num')
+
+        # 2. Obtener Gastos Extra (Cargos)
+        gastos = GastoExtra.objects.filter(apartamento=apt).annotate(
+            fecha_mov=F('fecha_generacion'),
+            concepto_mov=Cast(F('descripcion'), output_field=TextField()),
+            monto_mov=Cast(F('monto_usd'), output_field=DecimalField(max_digits=10, decimal_places=2)),
+            tipo_mov=Cast(Value('CARGO'), output_field=TextField()),
+            mes_num=Cast(Value(None), output_field=IntegerField()), # Forzamos que el NULL sea Integer
+            year_num=Cast(Value(None), output_field=IntegerField())  # Forzamos que el NULL sea Integer
+        ).values('fecha_mov', 'concepto_mov', 'monto_mov', 'tipo_mov', 'mes_num', 'year_num')
+
+        # 3. Obtener Pagos Validados (Abonos)
+        pagos = Pago.objects.filter(
+            mensualidades_pagadas__mensualidad__contrato__apartamento=apt,
+            estado_validacion='validado'
+        ).annotate(
+            fecha_mov=F('fecha_pago'),
+            concepto_mov=Cast(F('pagotransferencias__referencia'), output_field=TextField()),
+            monto_mov=Cast(F('monto_total'), output_field=DecimalField(max_digits=10, decimal_places=2)),
+            tipo_mov=Cast(Value('ABONO'), output_field=TextField()),
+            mes_num=Cast(Value(None), output_field=IntegerField()),
+            year_num=Cast(Value(None), output_field=IntegerField())
+        ).values('fecha_mov', 'concepto_mov', 'monto_mov', 'tipo_mov', 'mes_num', 'year_num').distinct()
+
+        # 4. Unir todo y ordenar por fecha
+        movimientos = mensualidades.union(gastos, pagos).order_by('-fecha_mov')
+
+        meses_nombres = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+            5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+            9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        }
+
+        lista_final = []
+        for m in movimientos:
+            raw_concepto = m.get('concepto_mov')
+            tipo = m.get('tipo_mov')
+
+            # Si es mensualidad, construimos el nombre dinámico
+            if raw_concepto == 'Mensualidad':
+                mes = meses_nombres.get(m.get('mes_num'), "S/M")
+                anio = m.get('year_num')
+                concepto = f"Mensualidad de {mes} {anio}"
+            elif tipo == 'ABONO':
+                concepto = f"Pago Ref: {raw_concepto}" if raw_concepto else "Pago en Efectivo"
+            else:
+                concepto = raw_concepto
+
+            lista_final.append({
+                "fecha": m.get('fecha_mov'),
+                "concepto": concepto,
+                "monto": float(m.get('monto_mov', 0)),
+                "tipo": tipo
+            })
+
+        return Response({
+            "apartamento": str(apt),
+            "total_movimientos": len(lista_final),
+            "historial": lista_final
+        })
 
 #========================================================================================================================    
 #Vistas recibos

@@ -9,7 +9,10 @@ from .views import (
     AnularPagoView,
     ListaRecibosAPIView,
     ReciboDetalleAPIView,
-    EliminarPagoView
+    EliminarPagoView,
+    EstadoCuentaApartamentoAPIView,
+    HistorialMovimientosAPIView
+
 ) 
 
 urlpatterns = [
@@ -21,6 +24,8 @@ urlpatterns = [
     path('detalle-previo/', DetallePagoPrevioAPIView.as_view(), name='detalle-pago-previo'), # Detalle de pago previo (antes de registrar)
     path('anular/<int:pago_id>/', AnularPagoView.as_view(), name='anular_pago'), # Permite anular un pago solo si esta validado (arrendador o superusuario)
     path('eliminar/<int:pago_id>/', EliminarPagoView.as_view(), name='eliminar_pago'), # Permite eliminar un pago solo si esta rechazado (arrendador o superusuario)
+    path('estado-cuenta/<int:apartamento_id>/', EstadoCuentaApartamentoAPIView.as_view(), name='estado-cuenta-detalle'), #Estado de cuenta de un apartamento específico (total mensualidades, gastos extra, pagos realizados y saldo pendiente)
+    path('historial-movimientos/<int:apartamento_id>/', HistorialMovimientosAPIView.as_view(), name='historial-movimientos'), #Historial de movimientos (mensualidades, gastos extra y pagos) de un apartamento específico
 
     path('recibos/', ListaRecibosAPIView.as_view(), name='lista_recibos'), #Lista de recibos (filtrable por estado, usuario, fechas)
     path('recibos/<int:id>/', ReciboDetalleAPIView.as_view(), name='detalle-recibo'), #Detalle de un recibo específico (por id)

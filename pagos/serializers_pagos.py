@@ -187,3 +187,12 @@ class AccionValidarPagoSerializer(serializers.Serializer):
     accion = serializers.ChoiceField(choices=['validar', 'rechazar'])
     observacion = serializers.CharField(required=False, allow_blank=True)
     
+class EstadoCuentaSerializer(serializers.Serializer):
+    id_apartamento = serializers.IntegerField(read_only=True)
+    nombre_apartamento = serializers.CharField(read_only=True)
+    total_mensualidades = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    total_gastos_extra = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    total_pagado = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    saldo_pendiente = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    moneda = serializers.CharField(read_only=True)
+    
