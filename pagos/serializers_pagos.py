@@ -96,7 +96,7 @@ class PagoRegistroSerializer(serializers.Serializer):
             fecha_base = data.get("fecha_pago")
 
         # 4. Buscar tasa activa para esa fecha
-        tasa = TasaDia.objects.filter(fecha=fecha_base, activa=True).first()
+        tasa = TasaDia.objects.filter(fecha=fecha_base, estado="activa").first()
         if not tasa:
             raise serializers.ValidationError(f"No se encontró una tasa activa para el día {fecha_base}.")
 

@@ -358,7 +358,8 @@ class RegistrarPagoView(GenericAPIView):
 #Permite que el arrendador valide un pago registrado por un arrendatario     
 class ValidarPagoView(APIView): 
     
-    permission_classes = [IsAuthenticated, EsArrendador, EsArrendadorYAdministraElPago]
+    permission_classes = [IsAuthenticated, EsArrendador]
+    #EsArrendadorYAdministraElPago
 
     @swagger_auto_schema(request_body=AccionValidarPagoSerializer)
     @transaction.atomic

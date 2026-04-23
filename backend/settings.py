@@ -40,14 +40,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     'comunidad',
-    'pagos',
+    'pagos.apps.PagosConfig', 
     'usuarios',
     'contratos',
     'edificios',
     'encuestas',
     'gastos',
     'log',
-    'notificaciones',
+    'notificaciones.apps.NotificacionesConfig',
     'tasas',
 
     'rest_framework',

@@ -119,6 +119,8 @@ def generar_recibo_para_pago(pago, usuario):
             descripcion=f"Gasto extra #{pg.gasto_extra.id} asociado al recibo #{recibo.id}"
         )
 
+    return recibo
+
 #====================================================================================================================================================================
 #YA NO SE USAN PORQUE EL RECIBO SE CREA EN LAS VISTAS REGISTRARPAGO (PARA ARRENDADOR) Y VALIDARPAGO (PARA ARRENDATARIO)
 def crear_recibo_para_mensualidad(mensualidad, pago, creado_por): #Crea un recibo para una mensualidad nueva (depende de contratos.tareas.crear_mensualidad)
