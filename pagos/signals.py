@@ -3,8 +3,6 @@ from django.dispatch import receiver
 from .models import Pago
 from notificaciones.models import Notificacion
 
-print("✅ Las señales de Pagos se han cargado correctamente") # <--- Agrega esto
-
 @receiver(post_save, sender=Pago)
 def notificar_pago_validado(sender, instance, created, **kwargs):
 # Verificamos que el pago esté validado

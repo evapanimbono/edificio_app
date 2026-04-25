@@ -41,7 +41,17 @@ class ListaEdificiosAPIView(generics.ListAPIView):
         elif user.tipo_usuario == 'arrendador':
             edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
             return Edificio.objects.filter(id__in=edificios_ids)
-        # Arrendatarios no pueden ver lista de edificios
+        elif user.tipo_usuario == 'arrendatario':
+            from contratos.models import Contrato
+            # 1. Buscamos el ID del edificio directamente desde el contrato activo del usuario
+            edificios_ids = Contrato.objects.filter(
+                arrendatario=user, 
+                activo=True
+            ).values_list('apartamento__edificio_id', flat=True)
+
+            # 2. Devolvemos los edificios que coincidan con esos IDs
+            return Edificio.objects.filter(id__in=edificios_ids)
+        
         return Edificio.objects.none()
 
 # Detalle edificio (todos pueden ver)
@@ -133,7 +143,17 @@ class ListaApartamentosAPIView(generics.ListAPIView):
         elif user.tipo_usuario == 'arrendador':
             edificios_ids = user.edificios_asignados.values_list('edificio_id', flat=True)
             return Apartamento.objects.filter(edificio_id__in=edificios_ids)
-        # Arrendatarios no tienen lista de apartamentos
+        elif user.tipo_usuario == 'arrendatario':
+            # ¡Añadimos esto! 
+            # Buscamos los apartamentos donde este usuario tiene un contrato
+            from contratos.models import Contrato
+            apartamentos_ids = Contrato.objects.filter(
+                arrendatario=user, 
+                activo=True  # Es importante que el contrato esté vigente
+            ).values_list('apartamento_id', flat=True)
+            
+            return Apartamento.objects.filter(id__in=apartamentos_ids)
+            
         return Apartamento.objects.none()
 
 # Detalle apartamento (todos)
