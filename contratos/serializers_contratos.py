@@ -40,3 +40,32 @@ class ContratoSerializer(serializers.ModelSerializer):
             raise ValidationError("El monto mensual debe ser mayor que cero.")
 
         return data
+    
+class ContratoDetalleSerializer(serializers.ModelSerializer):
+    # Esto traerá el nombre del edificio y el número de apto en lugar de IDs
+    edificio_nombre = serializers.ReadOnlyField(source='apartamento.edificio.nombre')
+    apartamento_numero = serializers.ReadOnlyField(source='apartamento.numero_apartamento')
+
+    class Meta:
+        model = Contrato
+        fields = [
+            'id', 'edificio_nombre', 'apartamento_numero', 
+            'fecha_inicio', 'fecha_fin', 'fecha_pago_mensual', 
+            'monto_usd_mensual', 'activo', 'archivo_contrato_pdf'
+        ]
+
+class ContratoListaArrendadorSerializer(serializers.ModelSerializer):
+    arrendatario_nombre = serializers.ReadOnlyField(source='arrendatario.nombre_completo')
+    arrendatario_email = serializers.ReadOnlyField(source='arrendatario.correo')
+    arrendatario_telefono = serializers.ReadOnlyField(source='arrendatario.telefono') # Si tienes este campo
+    
+    edificio_nombre = serializers.ReadOnlyField(source='apartamento.edificio.nombre')
+    apartamento_numero = serializers.ReadOnlyField(source='apartamento.numero_apartamento')
+
+    class Meta:
+        model = Contrato
+        fields = [
+            'id', 'arrendatario_nombre', 'arrendatario_email', 'arrendatario_telefono',
+            'edificio_nombre', 'apartamento_numero', 'monto_usd_mensual', 
+            'fecha_pago_mensual', 'fecha_inicio', 'fecha_fin', 'activo', 'archivo_contrato_pdf'
+        ]

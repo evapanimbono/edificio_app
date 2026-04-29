@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from .models import Contrato
-from .serializers_contratos import ContratoSerializer
+from .serializers_contratos import ContratoSerializer,ContratoListaArrendadorSerializer
 from .filters import ContratosFilter, MensualidadFilter
 
 from .models_mensualidades import Mensualidad
@@ -30,22 +30,29 @@ from usuarios.permissions import EsArrendador
 
 #Vista de contatos filtrada por tipo de usuario
 class ListaContratosAPIView(generics.ListAPIView):
-    # Arrendatario: lista de contratos donde es arrendatario
     # Arrendador: lista de contratos de los apartamentos que administra
-    serializer_class = ContratoSerializer 
+    serializer_class = ContratoListaArrendadorSerializer 
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = ContratosFilter
 
     def get_queryset(self):
         user = self.request.user
+        # Capturamos el id del apartamento si viene en la URL (ej: ?apartamento=5)
+        apartamento_id = self.request.query_params.get('apartamento')
 
         if user.tipo_usuario == 'arrendatario':
             return Contrato.objects.filter(arrendatario=user)
         
         elif user.tipo_usuario == 'arrendador':
             edificios = user.edificios_asignados.values_list('edificio_id', flat=True)
-            return Contrato.objects.filter(apartamento__edificio_id__in=edificios)
+            queryset = Contrato.objects.filter(apartamento__edificio_id__in=edificios)
+            
+            # SI el frontend envió un ID de apartamento, filtramos aún más
+            if apartamento_id:
+                queryset = queryset.filter(apartamento_id=apartamento_id)
+            
+            return queryset
         
         if user.is_superuser:
             return Contrato.objects.all()
@@ -116,7 +123,7 @@ class ContratoDetailArrendatarioAPIView(generics.RetrieveAPIView):
 
 #Vista para ver detalle, actualizar o eliminar un contrato, accesible por arrendador o superusuario 
 class ContratoDetailArrendadorAPIView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = ContratoSerializer
+    serializer_class = ContratoListaArrendadorSerializer
     permission_classes = [IsAuthenticated, EsArrendador]
 
     def get_queryset(self):
@@ -149,6 +156,20 @@ class ContratoDetailArrendadorAPIView(generics.RetrieveUpdateDestroyAPIView):
             descripcion=f"Contrato #{contrato_id} eliminado."
         )
 
+class MiContratoActivoAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        # Buscamos el contrato activo
+        contrato = Contrato.objects.filter(arrendatario=user, activo=True).first()
+        
+        if not contrato:
+            return Response({"error": "No tienes un contrato activo asignado."}, status=404)
+        
+        # Usamos un serializer que nos dé info legible (puedes crear uno nuevo o usar el que tienes)
+        serializer = ContratoSerializer(contrato) 
+        return Response(serializer.data)
 #============================= MENSUALIDADES =============================
 #Vista para ver detalle de una mensualidad, accesible por arrendador, arrendatario o superusuario
 class DetalleMensualidadAPIView(generics.RetrieveAPIView):
