@@ -5,6 +5,10 @@ from django.utils import timezone
 from .models import Contrato
 
 class ContratoSerializer(serializers.ModelSerializer):
+
+    # Declaramos el campo explícitamente como FileField
+    archivo_contrato_pdf = serializers.FileField(required=False, allow_null=True)
+    
     class Meta:
         model = Contrato
         fields = '__all__'
@@ -13,7 +17,7 @@ class ContratoSerializer(serializers.ModelSerializer):
         apartamento = data.get('apartamento')
         fecha_inicio = data.get('fecha_inicio')
         fecha_fin = data.get('fecha_fin')
-        monto_mensual = data.get('monto_mensual_usd')
+        monto_mensual = data.get('monto_usd_mensual')
 
         # Validar que apartamento esté activo
         if apartamento.estado != 'activo':

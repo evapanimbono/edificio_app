@@ -7,6 +7,7 @@ from rest_framework.generics import CreateAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from .models import Contrato
 from .serializers_contratos import ContratoSerializer,ContratoListaArrendadorSerializer
@@ -90,6 +91,7 @@ class CrearContratoAPIView(CreateAPIView):
     queryset = Contrato.objects.all()
     serializer_class = ContratoSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def perform_create(self, serializer):
         usuario = self.request.user

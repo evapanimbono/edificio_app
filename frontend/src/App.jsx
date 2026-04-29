@@ -21,6 +21,9 @@ function App() {
   const [contratosApto, setContratosApto] = useState([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
   const [contratoSeleccionado, setContratoSeleccionado] = useState(null);
+  const [aptoIdParaContrato, setAptoIdParaContrato] = useState(null);
+
+  const [arrendatarios, setArrendatarios] = useState([])  
 
   // 2. Aquí están tus funciones como verDetalleApto...  
   const handleLogout = () => {
@@ -71,14 +74,39 @@ function App() {
     setVistaActual('mi-contrato'); 
   };
 
-  const verHistorialContratosApto = async () => {
-    if (!aptoSeleccionado) return;
+  const verHistorialContratosApto = async (idManual = null) => {
+    // 1. BLINDAJE: Si idManual es un evento de React (tiene la propiedad target), lo ignoramos
+    const idReal = (idManual && idManual.target) ? null : idManual;
+
+    // 2. Determinamos el ID final
+    let idFinal = null;
+    if (idReal) {
+      idFinal = idReal;
+    } else if (aptoSeleccionado) {
+      idFinal = aptoSeleccionado.id;
+    } else {
+      idFinal = aptoIdParaContrato;
+    }
+
+    // Si sigue siendo un objeto o nulo, no podemos continuar
+    if (!idFinal || typeof idFinal === 'object') {
+      console.error("ID no válido detectado:", idFinal);
+      return;
+    }
+
+    // 3. Guardar info para el Header
+    if (aptoSeleccionado) {
+      window.aptoSeleccionadoLocal = {
+        numero_apartamento: aptoSeleccionado.numero_apartamento,
+        edificio_nombre: aptoSeleccionado.edificio_nombre
+      };
+      setAptoIdParaContrato(idFinal);
+    }
 
     setCargandoHistorial(true);
     try {
       const token = localStorage.getItem('access_token');
-      // Usamos el parámetro ?apartamento=ID que configuramos en el backend
-      const response = await fetch(`http://localhost:8000/api/contratos/?apartamento=${aptoSeleccionado.id}`, {
+      const response = await fetch(`http://localhost:8000/api/contratos/?apartamento=${idFinal}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -87,11 +115,9 @@ function App() {
 
       if (response.ok) {
         const data = await response.json();
-        setContratosApto(data); // Guardamos la lista
-        setAptoSeleccionado(null); // Cerramos el modal
-        setVistaActual('historial-contratos'); // Cambiamos a la nueva pantalla
-      } else {
-        console.error("Error al obtener el historial");
+        setContratosApto(data); 
+        setAptoSeleccionado(null); 
+        setVistaActual('historial-contratos');
       }
     } catch (error) {
       console.error("Error de red:", error);
@@ -118,6 +144,62 @@ function App() {
       }
     } catch (error) {
       console.error("Error al cargar el detalle del contrato:", error);
+    }
+  };
+
+  const prepararNuevoContrato = async (idApartamento) => {
+    const token = localStorage.getItem('access_token');
+    
+    // Guardamos el ID del apartamento para usarlo luego en el POST
+    setAptoIdParaContrato(idApartamento);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/usuarios/arrendador/arrendatarios/', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setArrendatarios(data);
+        setVistaActual('crear-contrato');
+      }
+    } catch (error) {
+      console.error("Error al cargar arrendatarios:", error);
+    }
+  };
+
+  const fechaHoy = new Date().toISOString().split('T')[0];
+
+  const formatearFechaEsp = (fechaStr) => {
+    if (!fechaStr || fechaStr === 'Presente') return fechaStr;
+    // Dividimos la cadena "2026-04-29" por los guiones
+    const [año, mes, dia] = fechaStr.split('-');
+    // Devolvemos el formato que queremos
+    return `${dia}/${mes}/${año}`;
+  };
+
+  const manejarGuardarContrato = async (formData) => {
+    const token = localStorage.getItem('access_token');
+    
+    // Nos aseguramos de que esto sea un ID (número) y no el objeto completo
+    const idLimpio = typeof aptoIdParaContrato === 'object' ? aptoIdParaContrato.id : aptoIdParaContrato;
+
+    try {
+      const response = await fetch('http://localhost:8000/api/contratos/crear/', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData 
+      });
+
+      if (response.ok) {
+        // Pasamos el ID limpio para refrescar
+        await verHistorialContratosApto(idLimpio);
+      } else {
+        const errorData = await response.json();
+        alert("Error: " + JSON.stringify(errorData));
+      }
+    } catch (error) {
+      console.error("Error:", error);
     }
   };
 
@@ -324,11 +406,11 @@ function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '12px' }}>
                     <label style={{ color: '#64748b', fontSize: '0.85rem' }}>Fecha de Inicio</label>
-                    <div style={{ fontWeight: '600', marginTop: '5px' }}>{datosContrato.fecha_inicio}</div>
+                    <div style={{ fontWeight: '600', marginTop: '5px' }}>{formatearFechaEsp(datosContrato.fecha_inicio)}</div>
                   </div>
                   <div style={{ backgroundColor: '#f8fafc', padding: '1.5rem', borderRadius: '12px' }}>
                     <label style={{ color: '#64748b', fontSize: '0.85rem' }}>Vencimiento</label>
-                    <div style={{ fontWeight: '600', marginTop: '5px' }}>{datosContrato.fecha_fin || 'Indefinido'}</div>
+                    <div style={{ fontWeight: '600', marginTop: '5px' }}>{formatearFechaEsp(datosContrato.fecha_fin) || 'Indefinido'}</div>
                   </div>
                 </div>
 
@@ -375,78 +457,206 @@ function App() {
         )}
 
         {/* --- PANTALLA DE HISTORIAL DE CONTRATOS (Para el Arrendador) --- */}
-        {vistaActual === 'historial-contratos' && (
-          <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-            <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ color: '#1e293b', fontSize: '1.8rem', margin: 0 }}>
-                  Historial de Contratos: {contratosApto.length > 0 ? `Apto ${contratosApto[0].apartamento_numero}` : 'Cargando...'}
-                </h2>
-                <span style={{ color: '#64748b', fontSize: '1rem' }}>
-                  {contratosApto.length > 0 && contratosApto[0].edificio_nombre}
-                </span>
-                <p style={{ color: '#64748b' }}>Registros de contratos para este apartamento.</p>
-              </div>
-              <button 
-                onClick={() => setVistaActual('apartamentos')}
-                style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', border: 'none', borderRadius: '6px', cursor: 'pointer', color: '#475569', fontWeight: 'bold' }}
-              >
-                ← Volver
-              </button>
-            </header>
+        {vistaActual === 'historial-contratos' && (() => {
+          // 1. Buscamos si hay algún contrato activo para bloquear/desbloquear el botón de "Nuevo"
+          const tieneContratoActivo = contratosApto.some(c => c.activo === true);
 
-            {contratosApto.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', backgroundColor: '#f8fafc', borderRadius: '12px', border: '2px dashed #e2e8f0' }}>
-                <p style={{ color: '#94a3b8' }}>No hay contratos registrados para este apartamento.</p>
-              </div>
-            ) : (
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                    <tr>
-                      <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Inquilino</th>
-                      <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Inicio / Fin</th>
-                      <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Monto</th>
-                      <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Estado</th>
-                      <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contratosApto.map((contrato) => (
-                      <tr key={contrato.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '15px', fontWeight: '500' }}>{contrato.arrendatario_nombre}</td>
-                        <td style={{ padding: '15px', color: '#475569', fontSize: '0.9rem' }}>
-                          {contrato.fecha_inicio} a {contrato.fecha_fin || 'Presente'}
-                        </td>
-                        <td style={{ padding: '15px', fontWeight: 'bold' }}>${contrato.monto_usd_mensual}</td>
-                        <td style={{ padding: '15px' }}>
-                          <span style={{ 
-                            padding: '4px 10px', 
-                            borderRadius: '20px', 
-                            fontSize: '0.75rem',
-                            backgroundColor: contrato.activo ? '#dcfce7' : '#f1f5f9',
-                            color: contrato.activo ? '#166534' : '#64748b',
-                            fontWeight: 'bold'
-                          }}>
-                            {contrato.activo ? 'ACTIVO' : 'FINALIZADO'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '15px' }}>
-                          <button 
-                            onClick={() => verDetalleEspecificoContrato(contrato.id)} // <--- Ahora llama a la función con el ID
-                            style={{ color: '#3b82f6', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600' }}
-                          >
-                            Ver detalle
-                          </button>
-                        </td>
+          // 2. Prioridad de datos para el Header
+          const aptoData = contratosApto.length > 0 ? contratosApto[0] : null;
+          
+          const numeroMostrado = aptoData 
+            ? aptoData.apartamento_numero 
+            : (window.aptoSeleccionadoLocal?.numero_apartamento || "");
+
+          const edificioMostrado = aptoData 
+            ? aptoData.edificio_nombre 
+            : (window.aptoSeleccionadoLocal?.edificio_nombre || "Edificio");
+
+          return (
+            <div style={{ padding: '20px', maxWidth: '1100px', margin: '0 auto' }}>
+              
+              {/* HEADER */}
+              <header style={{ 
+                marginBottom: '2.5rem', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                backgroundColor: 'white', 
+                padding: '1.5rem', 
+                borderRadius: '12px', 
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)' 
+              }}>
+                <div>
+                  <h2 style={{ color: '#1e293b', fontSize: '1.8rem', margin: '0 0 5px 0' }}>
+                    Historial: Apto {numeroMostrado}
+                  </h2>
+                  <span style={{ color: '#475569', fontSize: '1.1rem', fontWeight: '500', display: 'block', marginBottom: '5px' }}>
+                    {edificioMostrado}
+                  </span>
+                  <p style={{ color: '#64748b', margin: 0, fontSize: '0.95rem' }}>Registro histórico de arrendamientos.</p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                  <button 
+                    disabled={tieneContratoActivo}
+                    onClick={() => {
+                      const idApto = aptoData ? aptoData.apartamento : aptoIdParaContrato;
+                      prepararNuevoContrato(idApto);
+                    }}
+                    style={{ 
+                      padding: '10px 20px', 
+                      backgroundColor: tieneContratoActivo ? '#f1f5f9' : '#16a34a', 
+                      color: tieneContratoActivo ? '#94a3b8' : 'white', 
+                      border: tieneContratoActivo ? '1px solid #e2e8f0' : 'none', 
+                      borderRadius: '8px', 
+                      cursor: tieneContratoActivo ? 'not-allowed' : 'pointer', 
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <span>+</span> Nuevo Contrato
+                  </button>
+
+                  <button 
+                    onClick={() => setVistaActual('apartamentos')}
+                    style={{ 
+                      padding: '10px 20px', 
+                      backgroundColor: '#f8fafc', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '8px', 
+                      cursor: 'pointer', 
+                      color: '#475569', 
+                      fontWeight: 'bold' 
+                    }}
+                  >
+                    ← Volver
+                  </button>
+                </div>
+              </header>
+
+              {/* CONTENIDO: Tabla o Mensaje de "Sin Contratos" */}
+              {contratosApto.length === 0 ? (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '4rem 2rem', 
+                  backgroundColor: 'white', 
+                  borderRadius: '12px', 
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>📄</div>
+                  <h3 style={{ color: '#1e293b', marginBottom: '0.5rem', fontSize: '1.4rem' }}>No hay contratos registrados</h3>
+                  <p style={{ color: '#64748b', margin: 0, fontSize: '1rem' }}>
+                    Este apartamento aún no tiene historial. Usa el botón <strong>"+ Nuevo Contrato"</strong> para empezar.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                      <tr>
+                        <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Inquilino</th>
+                        <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Inicio / Fin</th>
+                        <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Monto</th>
+                        <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Estado</th>
+                        <th style={{ padding: '15px', color: '#64748b', fontSize: '0.85rem' }}>Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                    </thead>
+                    <tbody>
+                      {contratosApto.map((contrato) => (
+                        <tr key={contrato.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '15px', fontWeight: '500' }}>{contrato.arrendatario_nombre}</td>
+                          
+                          <td style={{ padding: '15px', color: '#475569', fontSize: '0.9rem' }}>
+                            {formatearFechaEsp(contrato.fecha_inicio)} a {contrato.fecha_fin ? formatearFechaEsp(contrato.fecha_fin) : 'Presente'}
+                          </td>
+
+                          <td style={{ padding: '15px', fontWeight: 'bold', color: '#1e293b' }}>
+                            ${contrato.monto_usd_mensual}
+                          </td>
+
+                          <td style={{ padding: '15px' }}>
+                            <span style={{ 
+                              padding: '4px 12px', 
+                              borderRadius: '20px', 
+                              fontSize: '0.75rem',
+                              backgroundColor: contrato.activo ? '#dcfce7' : '#f1f5f9',
+                              color: contrato.activo ? '#166534' : '#64748b',
+                              fontWeight: 'bold',
+                              textTransform: 'uppercase'
+                            }}>
+                              {contrato.activo ? 'ACTIVO' : 'FINALIZADO'}
+                            </span>
+                          </td>
+
+                          <td style={{ padding: '15px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              {/* Botón de Ver PDF mejorado */}
+                              {contrato.archivo_contrato_pdf ? (
+                                <button 
+                                  onClick={() => {
+                                    const servidor = "http://localhost:8000";
+                                    let rutaArchivo = contrato.archivo_contrato_pdf;
+
+                                    // Si la ruta no empieza con http ni con /, le agregamos la base de media
+                                    let urlFinal;
+                                    if (rutaArchivo.startsWith('http')) {
+                                      urlFinal = rutaArchivo;
+                                    } else {
+                                      // Nos aseguramos de que empiece con / y contenga /media/
+                                      const prefijo = rutaArchivo.startsWith('/') ? "" : "/";
+                                      const contieneMedia = rutaArchivo.includes('/media/');
+                                      
+                                      urlFinal = contieneMedia 
+                                        ? `${servidor}${prefijo}${rutaArchivo}`
+                                        : `${servidor}/media/${prefijo}${rutaArchivo}`;
+                                    }
+
+                                    console.log("Intentando abrir:", urlFinal); // Para que verifiques en consola
+                                    
+                                    const nuevaVentana = window.open(urlFinal, '_blank', 'noopener,noreferrer');
+                                  }}
+                                  style={{ 
+                                    color: '#16a34a', 
+                                    border: 'none', 
+                                    background: 'none', 
+                                    padding: 0, 
+                                    textAlign: 'left', 
+                                    cursor: 'pointer', 
+                                    fontSize: '0.85rem', 
+                                    fontWeight: '600',
+                                    textDecoration: 'underline' 
+                                  }}
+                                >
+                                  📄 Ver PDF
+                                </button>
+                              ) : (
+                                <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                                  Sin archivo
+                                </span>
+                              )}
+
+                              {/* Botón Ver Detalle (se mantiene igual) */}
+                              <button 
+                                onClick={() => verDetalleEspecificoContrato(contrato.id)}
+                                style={{ color: '#3b82f6', border: 'none', background: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '5px' }}
+                              >
+                                <span>👁️</span> Ver detalle
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* --- PANTALLA DE DETALLE ESPECÍFICO (Arrendador) --- */}
         {vistaActual === 'detalle-contrato-arrendador' && contratoSeleccionado && (
@@ -503,7 +713,7 @@ function App() {
               {/* FOOTER: VIGENCIA Y PDF */}
               <div style={{ marginTop: '2rem', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
                 <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-                  Contrato vigente desde el <strong>{contratoSeleccionado.fecha_inicio}</strong> hasta <strong>{contratoSeleccionado.fecha_fin || 'Vigente'}</strong>.
+                  Contrato vigente desde el <strong>{formatearFechaEsp(contratoSeleccionado.fecha_inicio)}</strong> hasta <strong>{formatearFechaEsp(contratoSeleccionado.fecha_fin) || 'Vigente'}</strong>.
                 </p>
                 {contratoSeleccionado.archivo_contrato_pdf && (
                     <div style={{ textAlign: 'center', marginTop: '1rem' }}>
@@ -520,6 +730,165 @@ function App() {
               </div>
 
             </div>
+          </div>
+        )}
+
+        {vistaActual === 'crear-contrato' && (
+          <div style={{ padding: '20px', maxWidth: '700px', margin: '0 auto' }}>
+            <header style={{ marginBottom: '2rem' }}>
+              <h2 style={{ color: '#1e293b' }}>📝 Crear Nuevo Contrato</h2>
+              <p style={{ color: '#64748b' }}>Registra un nuevo contrato para el apartamento seleccionado.</p>
+            </header>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                
+                // Añadimos datos que no están en los inputs manualmente
+                formData.append('apartamento', aptoIdParaContrato);
+                formData.append('activo', true);
+
+                // Llamamos a la función de guardado
+                manejarGuardarContrato(formData); 
+              }}
+              style={{ 
+                backgroundColor: 'white', 
+                padding: '2rem', 
+                borderRadius: '12px', 
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                display: 'grid',
+                gap: '2rem'
+              }}
+            >
+              {/* Selección de Inquilino */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#475569' }}>Inquilino</label>
+                <select 
+                  name="arrendatario" 
+                  required 
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#fff' }}
+                >
+                  <option value="">Selecciona un arrendatario...</option>
+                  {arrendatarios.map(user => (
+                    <option key={user.id} value={user.id}>{user.nombre_completo} ({user.correo})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
+                {/* Monto Mensual */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#475569' }}>Monto Mensual (USD)</label>
+                  <input 
+                    name="monto_usd_mensual" 
+                    type="number" 
+                    placeholder="Ej: 500" 
+                    required 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                </div>
+
+                {/* Día de Pago */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#475569' }}>Día de cobro (1-31)</label>
+                  <input 
+                    name="fecha_pago_mensual" 
+                    type="number" 
+                    min="1" 
+                    max="31" 
+                    placeholder="Ej: 5" 
+                    required 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
+                {/* Fecha Inicio */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#475569' }}>Fecha de Inicio</label>
+                  <input 
+                    name="fecha_inicio" 
+                    type="date" 
+                    defaultValue={fechaHoy}
+                    required 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                </div>
+
+                {/* Fecha Fin */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#475569' }}>Fecha de Vencimiento</label>
+                  <input 
+                    name="fecha_fin" 
+                    type="date" 
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                </div>
+              </div>
+
+              {/* Campo PDF */}
+              <div style={{ marginTop: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: '#475569' }}>
+                  Documento del Contrato (PDF)
+                </label>
+                <input 
+                  type="file" 
+                  accept=".pdf" 
+                  name="archivo_contrato_pdf"
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    borderRadius: '8px', 
+                    border: '1px dashed #cbd5e1',
+                    backgroundColor: '#f8fafc',
+                    cursor: 'pointer'
+                  }} 
+                />
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '5px' }}>
+                  Formatos permitidos: Solo PDF. Máximo 5MB.
+                </p>
+              </div>
+
+              {/* Botones de Acción */}
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    flex: 2, 
+                    padding: '12px', 
+                    backgroundColor: '#16a34a', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '8px', 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
+                >
+                  Guardar Contrato
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setVistaActual('historial-contratos')}
+                  style={{ 
+                    flex: 1, 
+                    padding: '12px', 
+                    backgroundColor: '#f1f5f9', 
+                    color: '#475569', 
+                    border: 'none', 
+                    borderRadius: '8px', 
+                    fontWeight: 'bold', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
           </div>
         )}
       
@@ -570,9 +939,12 @@ function App() {
               {/* BOTÓN DINÁMICO: Cambia según el rol */}
               <button 
                 style={{ ...btnAccionStyle, backgroundColor: '#3b82f6', color: 'white' }} 
-                onClick={userRole === 'arrendatario' ? verDetalleContrato : verHistorialContratosApto}
+                onClick={userRole === 'arrendatario' 
+                  ? () => verDetalleContrato() 
+                  : () => verHistorialContratosApto() 
+                }
               >
-                {cargandoHistorial ? 'Cargando...' : (userRole === 'arrendatario' ? 'Ver mi contrato' : 'Ver historial de contratos')}
+                {userRole === 'arrendatario' ? 'Ver Detalles' : 'Ver Historial de Contratos'}
               </button>
               
               {/* BOTÓN CERRAR: Limpia el apartamento seleccionado */}

@@ -16,7 +16,13 @@ class Contrato(models.Model):
     fecha_fin = models.DateField(blank=True, null=True)
     fecha_pago_mensual = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(31)])
     monto_usd_mensual = models.DecimalField(max_digits=10, decimal_places=2)
-    archivo_contrato_pdf = models.TextField(blank=True, null=True)
+    archivo_contrato_pdf = models.FileField(
+        upload_to='contratos/', 
+        storage=None, # Opcional, usa el default
+        max_length=255, 
+        null=True, 
+        blank=True
+    )
     activo = models.BooleanField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

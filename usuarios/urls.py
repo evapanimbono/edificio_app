@@ -19,7 +19,8 @@ from .views import (
     EditarPerfilAPIView,
     PerfilUsuarioAPIView,
     SolicitarCambioCorreoAPIView,
-    ConfirmarCambioCorreoAPIView
+    ConfirmarCambioCorreoAPIView,
+    ListaArrendatariosDisponiblesAPIView
 )    
 from .views_solicitudes import (
     ListarSolicitudesPendientesAPIView,
@@ -44,7 +45,8 @@ urlpatterns = [
     path('arrendador/solicitudes/', SolicitudesEdificiosArrendadorAPIView.as_view(), name='solicitudes-arrendador'), #Historial de solicitudes de vinculacion de arrendatarios a edificio (arrendador) 
     path('arrendador/asignados/detalle/<int:pk>/', DetalleUsuarioAsignadoAPIView.as_view(), name='detalle-usuario-asignado'), #Vista detalle de perfil de arrendatarios asociados a edificio que se administra (arrendador)
     path('arrendador/<int:pk>/activar-desactivar/', ArrendadorActivarDesactivarArrendatarioAPIView.as_view(), name='arrendador-activar-desactivar-usuario'), #Vista que permite activar desactivar un arrendatario (arrendador)
-    
+    path('arrendador/arrendatarios/', ListaArrendatariosDisponiblesAPIView.as_view(), name='lista-arrendatarios'),
+
     path('solicitudes/pendientes/', ListarSolicitudesPendientesAPIView.as_view(), name='solicitudes-pendientes'), #Lista de solicitudes de vinculacion pendientes
     path('solicitudes/<int:pk>/validar/', ValidarSolicitudAPIView.as_view(), name='validar-solicitud'), #Validacion o rechazo de solicitud de vinculacion
     path('solicitudes/historial/', HistorialSolicitudesAPIView.as_view(), name='historial-solicitudes'), #Historial de solicitudes de vinculacion (superuser) 

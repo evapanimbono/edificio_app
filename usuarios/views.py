@@ -7,6 +7,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_str
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from django.core.mail import send_mail
 from django.conf import settings
@@ -20,6 +21,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from log.models import LogAccion
+from pagos.tests import User
 
 from .permissions import EsArrendador
 from .models import Usuario
@@ -42,6 +44,8 @@ from .serializers import (
     ArrendadorActivarDesactivarUsuarioSerializer,
     SolicitarCambioCorreoSerializer,
 )    
+
+
 
 #===================== SUPERUSER =========================
 #Lista general de usuarios (superuser)
@@ -161,7 +165,6 @@ class EliminarAsociacionUsuarioEdificioAPIView(generics.DestroyAPIView):
             descripcion=f"Se eliminó la asociación del usuario {instance.usuario.username} con el edificio {instance.edificio.nombre}"
         )
         instance.delete()
-
     
 #===================== ARRENDADOR =========================
 #Lista general de usuarios asignados a edificios (arrendador)  
@@ -244,6 +247,15 @@ class DetalleUsuarioAsignadoAPIView(generics.RetrieveAPIView):
         ).values_list('usuario_id', flat=True)
 
         return Usuario.objects.filter(id__in=usuarios_ids)
+
+User = get_user_model()
+#Lista de usuarios disponibles para asignar un contrato (arrendador)
+class ListaArrendatariosDisponiblesAPIView(generics.ListAPIView):
+    serializer_class = UsuarioListSerializer 
+    permission_classes = [IsAuthenticated] # Quitamos IsAdminUser para que el Arrendador entre
+
+    def get_queryset(self):
+        return User.objects.filter(tipo_usuario='arrendatario')
 
 #===================== ARRENDATARIO =======================
 #Registro general de usuario (publica)
